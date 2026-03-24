@@ -367,17 +367,16 @@ export default function ProjectSettingsPage() {
           </>
         )}
 
-        {/* Permanent image prompt - only for custom type */}
-        {projectType === 'custom' && (
+        {/* Permanent image prompt - shown for all types */}
+        {true && (
         <div style={{
           marginTop: 20, padding: '14px', borderRadius: 'var(--radius)',
-          border: `1px solid ${projectType === 'custom' ? 'var(--brand-border)' : 'var(--border)'}`,
-          background: projectType === 'custom' ? 'var(--brand-bg)' : 'var(--bg-hover)',
+          border: '1px solid var(--border)',
+          background: 'var(--bg-hover)',
           transition: 'all 200ms',
         }}>
           <label className="input-label" style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
             ✏️ Stály prompt pre obrázky
-            {projectType === 'custom' && <span className="badge badge-brand" style={{ fontSize: 10 }}>Vlastné</span>}
           </label>
           <p style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 8, lineHeight: 1.5 }}>
             Bude pridaný ku každému generovanému obrázku tohto projektu. Ideálne pre špecifické miesto, produkty alebo štýl.
