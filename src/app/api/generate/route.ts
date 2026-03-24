@@ -223,11 +223,11 @@ Dôležité: Použij správny tón pre tento typ podniku. Formát: Len text prí
         // Build contents: if reference image exists, prepend it as style guide
         const imageContents = referenceImageData
           ? [{
-              parts: [
-                { inlineData: { data: referenceImageData, mimeType: referenceImageMime } },
-                { text: `Použi tento referenčný obrázok ako vizuálny inšpirátor – zachovaj rovnaký štýl, farebnosť, osvetlenie a kompozíciu.\n\n${baseImagePrompt}` },
-              ]
-            }]
+            parts: [
+              { inlineData: { data: referenceImageData, mimeType: referenceImageMime } },
+              { text: `Použi tento referenčný obrázok ako vizuálny inšpirátor – zachovaj rovnaký štýl, farebnosť, osvetlenie a kompozíciu.\n\n${baseImagePrompt}` },
+            ]
+          }]
           : baseImagePrompt
 
         const imageResult = await ai.models.generateContent({

@@ -6,7 +6,7 @@ import {
   FileText, Loader2, Trash2, CheckCircle2,
   Edit3, X, Save, Copy, Sparkles, RefreshCw,
   Share2, Globe, ImageIcon, ChevronRight, Info, MousePointerClick,
-  Upload, Library, Camera, Send, AlertCircle,
+  Upload, Library, Camera, Send, AlertCircle, Wand2, PenLine,
 } from 'lucide-react'
 
 type Post = {
@@ -115,6 +115,10 @@ function PostDrawer({ post, projectId, onClose, onUpdate, onDelete, hasMetaToken
   const [generatingImg, setGeneratingImg] = useState(false)
   const [showLibrary, setShowLibrary] = useState(false)
   const [hovering, setHovering] = useState(false)
+  const [showEditPanel, setShowEditPanel] = useState(false)
+  const [editText, setEditText] = useState('')
+  const [generatingEdit, setGeneratingEdit] = useState(false)
+  const [editError, setEditError] = useState<string | null>(null)
   const sc = STATUS_CONFIG[post.status] || STATUS_CONFIG.draft
   // Post is on a platform if it's published and has social IDs
   const hasSocialPost = post.status === 'published' && !!(post.fb_post_id || post.ig_post_id)
@@ -236,6 +240,26 @@ function PostDrawer({ post, projectId, onClose, onUpdate, onDelete, hasMetaToken
     } finally { setGeneratingImg(false) }
   }
 
+  async function handleEditWithPrompt() {
+    if (!editText.trim() || !post.image_url) return
+    setGeneratingEdit(true)
+    setEditError(null)
+    try {
+      const res = await fetch('/api/edit-image', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageUrl: post.image_url, prompt: editText, projectId }),
+      })
+      const data = await res.json()
+      if (data.imageUrl && await patchPost({ image_url: data.imageUrl })) {
+        onUpdate({ ...post, image_url: data.imageUrl })
+        setShowEditPanel(false); setEditText('')
+      } else {
+        setEditError(data.error || 'Chyba pri úprave obrázku')
+      }
+    } catch { setEditError('Sieťová chyba') }
+    finally { setGeneratingEdit(false) }
+  }
+
   return (
     <>
       {showLibrary && (
@@ -293,16 +317,22 @@ function PostDrawer({ post, projectId, onClose, onUpdate, onDelete, hasMetaToken
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
                 opacity: hovering ? 1 : 0, transition: 'opacity 200ms',
               }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 16px', background: 'white', borderRadius: 'var(--radius)', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: '#111' }}>
-                  <Camera size={14} /> Zmeniť foto
-                  <input ref={fileRef} type="file" accept="image/*" onChange={handleFileUpload} style={{ display: 'none' }} />
-                </label>
-                <button
-                  onClick={() => setShowLibrary(true)}
-                  style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 16px', background: 'white', borderRadius: 'var(--radius)', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: '#111', border: 'none' }}
-                >
-                  <Library size={14} /> Knižnica
-                </button>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, width: '100%', maxWidth: 300 }}>
+                  <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, padding: '9px 10px', background: 'white', borderRadius: 'var(--radius)', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: '#111' }}>
+                    <Camera size={13} /> Zmeniť foto
+                    <input ref={fileRef} type="file" accept="image/*" onChange={handleFileUpload} style={{ display: 'none' }} />
+                  </label>
+                  <button onClick={() => setShowLibrary(true)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, padding: '9px 10px', background: 'white', borderRadius: 'var(--radius)', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: '#111', border: 'none' }}>
+                    <Library size={13} /> Knižnica
+                  </button>
+                  <button onClick={() => { setHovering(false); handleGenerateImage() }} disabled={generatingImg} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, padding: '9px 10px', background: 'var(--brand)', borderRadius: 'var(--radius)', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: 'white', border: 'none' }}>
+                    {generatingImg ? <Loader2 size={13} style={{ animation: 'spin-slow 1s linear infinite' }} /> : <Wand2 size={13} />}
+                    {generatingImg ? 'Generujem...' : 'Vygenerovať'}
+                  </button>
+                  <button onClick={() => { setHovering(false); setShowEditPanel(p => !p) }} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, padding: '9px 10px', background: showEditPanel ? 'rgba(99,102,241,0.9)' : 'rgba(255,255,255,0.15)', borderRadius: 'var(--radius)', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: 'white', border: '1px solid rgba(255,255,255,0.4)' }}>
+                    <PenLine size={13} /> Upraviť promptom
+                  </button>
+                </div>
               </div>
               {/* Upload spinner */}
               {uploadingImg && (
@@ -359,6 +389,24 @@ function PostDrawer({ post, projectId, onClose, onUpdate, onDelete, hasMetaToken
             </div>
           )}
         </div>
+
+        {/* ── Edit prompt panel ── */}
+        {showEditPanel && post.image_url && (
+          <div style={{ padding: '14px', borderRadius: 'var(--radius)', border: '1px solid var(--brand-border)', background: 'var(--brand-bg)' }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--brand-dark)', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <PenLine size={13} /> Upraviť obrázok promptom
+            </div>
+            <p style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 8, lineHeight: 1.5 }}>Napíš čo chceš zmeniť – AI zoberie súčasný obrázok a aplikuje úpravy.</p>
+            <textarea className="input-field" rows={2} placeholder='Napr. "zmeň pozadie na biele", "pridaj teplé osvetlenie"' value={editText} onChange={e => setEditText(e.target.value)} style={{ resize: 'none', fontSize: 12, marginBottom: 8 }} />
+            {editError && <p style={{ fontSize: 11, color: 'var(--error)', marginBottom: 6 }}>⚠️ {editError}</p>}
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={handleEditWithPrompt} disabled={!editText.trim() || generatingEdit} style={{ flex: 1, padding: '8px 14px', borderRadius: 'var(--radius)', cursor: 'pointer', background: 'var(--brand)', color: 'white', border: 'none', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, opacity: (!editText.trim() || generatingEdit) ? 0.6 : 1 }}>
+                {generatingEdit ? <><Loader2 size={12} style={{ animation: 'spin-slow 1s linear infinite' }} /> Upravujem...</> : <><Wand2 size={12} /> Použiť prompt</>}
+              </button>
+              <button onClick={() => { setShowEditPanel(false); setEditText(''); setEditError(null) }} style={{ padding: '8px 12px', borderRadius: 'var(--radius)', cursor: 'pointer', background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-muted)', fontSize: 12 }}>Zrušiť</button>
+            </div>
+          </div>
+        )}
 
         {/* ── Caption ── */}
         <div>
