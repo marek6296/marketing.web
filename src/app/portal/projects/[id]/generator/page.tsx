@@ -370,6 +370,7 @@ function PostGenerator({ projectId }: { projectId: string }) {
           publishResult={publishResult}
           projectId={projectId}
           onOpenLibrary={() => setShowLibrary(true)}
+          onImageChange={(url) => setPost(prev => prev ? { ...prev, image_url: url } : null)}
         />
       </div>
     </>
@@ -584,12 +585,53 @@ function PhotoEnhancer({ projectId }: { projectId: string }) {
 }
 
 /* ─── Preview component ──────────────────────────────────────────── */
-function Preview({ post, loading, onPublish, onSchedule, onRegenerate, publishing, scheduling, scheduledAt, setScheduledAt, publishResult, projectId, onOpenLibrary }: {
+function Preview({ post, loading, onPublish, onSchedule, onRegenerate, publishing, scheduling, scheduledAt, setScheduledAt, publishResult, projectId, onOpenLibrary, onImageChange }: {
   post: Post | null; loading: boolean; onPublish: () => void; onSchedule: () => void; onRegenerate: () => void
   publishing: boolean; scheduling: boolean; scheduledAt: string; setScheduledAt: (v: string) => void
   publishResult: { facebook?: string; instagram?: string } | null
   projectId: string; onOpenLibrary: () => void
+  onImageChange: (url: string) => void
 }) {
+  const [imgMode, setImgMode] = useState<'none' | 'generate' | 'edit' | 'library'>('none')
+  const [imgPrompt, setImgPrompt] = useState('')
+  const [imgLoading, setImgLoading] = useState(false)
+
+  function toggleMode(m: typeof imgMode) {
+    setImgMode(prev => prev === m ? 'none' : m)
+    if (m === 'library') { onOpenLibrary(); setImgMode('none') }
+  }
+
+  async function handleGenerateNew() {
+    if (!imgPrompt.trim()) return
+    setImgLoading(true)
+    try {
+      const res = await fetch('/api/generate', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic: imgPrompt, projectId, mode: 'image-only', platform: 'instagram' }),
+      })
+      const data = await res.json()
+      if (data.imageUrl) { onImageChange(data.imageUrl); setImgMode('none'); setImgPrompt('') }
+    } finally { setImgLoading(false) }
+  }
+
+  async function handleEditWithPrompt() {
+    if (!imgPrompt.trim() || !post?.image_url) return
+    setImgLoading(true)
+    try {
+      const proxy = await fetch(`/api/proxy-image?url=${encodeURIComponent(post.image_url)}`)
+      const proxyData = await proxy.json()
+      const res = await fetch('/api/generate', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          topic: imgPrompt, projectId, mode: 'image-only', platform: 'instagram',
+          imageData: proxyData.base64, imageMime: proxyData.mime,
+        }),
+      })
+      const data = await res.json()
+      if (data.imageUrl) { onImageChange(data.imageUrl); setImgMode('none'); setImgPrompt('') }
+    } finally { setImgLoading(false) }
+  }
+
   return (
     <div className="card" style={{ padding: 24 }}>
       <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -602,12 +644,81 @@ function Preview({ post, loading, onPublish, onSchedule, onRegenerate, publishin
         </div>
       ) : post ? (
         <div>
+          {/* Image section */}
           {post.image_url ? (
-            <div style={{ position: 'relative', marginBottom: 14 }}>
-              <img src={post.image_url} alt="" style={{ width: '100%', borderRadius: 'var(--radius)', aspectRatio: '1', objectFit: 'cover' }} />
-              <div style={{ position: 'absolute', bottom: 8, right: 8, display: 'flex', gap: 4 }}>
-                <SaveToLibraryButton imageUrl={post.image_url} projectId={projectId} source="generated" />
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ position: 'relative' }}>
+                <img src={post.image_url} alt="" style={{ width: '100%', borderRadius: 'var(--radius)', aspectRatio: '1', objectFit: 'cover', display: 'block' }} />
+                <div style={{ position: 'absolute', bottom: 8, right: 8 }}>
+                  <SaveToLibraryButton imageUrl={post.image_url} projectId={projectId} source="generated" />
+                </div>
               </div>
+
+              {/* Image action toolbar */}
+              <div style={{ display: 'flex', gap: 4, marginTop: 6 }}>
+                <button onClick={() => toggleMode('generate')} style={{
+                  flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+                  padding: '7px 4px', borderRadius: 'var(--radius)', border: `1px solid ${imgMode === 'generate' ? 'var(--brand-border)' : 'var(--border)'}`,
+                  background: imgMode === 'generate' ? 'var(--brand-bg)' : 'var(--bg-base)',
+                  color: imgMode === 'generate' ? 'var(--brand-dark)' : 'var(--text-secondary)',
+                  cursor: 'pointer', fontSize: 11, fontWeight: 600, fontFamily: 'Inter', transition: 'all 150ms',
+                }}>
+                  <RefreshCw size={12} /> Nový obrázok
+                </button>
+                <button onClick={() => toggleMode('edit')} style={{
+                  flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+                  padding: '7px 4px', borderRadius: 'var(--radius)', border: `1px solid ${imgMode === 'edit' ? 'var(--brand-border)' : 'var(--border)'}`,
+                  background: imgMode === 'edit' ? 'var(--brand-bg)' : 'var(--bg-base)',
+                  color: imgMode === 'edit' ? 'var(--brand-dark)' : 'var(--text-secondary)',
+                  cursor: 'pointer', fontSize: 11, fontWeight: 600, fontFamily: 'Inter', transition: 'all 150ms',
+                }}>
+                  <Wand2 size={12} /> Upraviť promptom
+                </button>
+                <button onClick={() => toggleMode('library')} style={{
+                  flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+                  padding: '7px 4px', borderRadius: 'var(--radius)', border: '1px solid var(--border)',
+                  background: 'var(--bg-base)', color: 'var(--text-secondary)',
+                  cursor: 'pointer', fontSize: 11, fontWeight: 600, fontFamily: 'Inter', transition: 'all 150ms',
+                }}>
+                  <Library size={12} /> Z knižnice
+                </button>
+              </div>
+
+              {/* Prompt panel */}
+              {(imgMode === 'generate' || imgMode === 'edit') && (
+                <div style={{
+                  marginTop: 8, padding: '12px', borderRadius: 'var(--radius)',
+                  background: 'var(--bg-hover)', border: '1px solid var(--border)',
+                }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6 }}>
+                    {imgMode === 'generate'
+                      ? '🎨 Nový obrázok – zadať čo má obrázok zobrazovať'
+                      : '✏️ Upraviť – popíš čo chceš zmeniť na tomto obrázku'}
+                  </div>
+                  <textarea
+                    className="input-field"
+                    rows={2}
+                    placeholder={imgMode === 'generate' ? 'Napr. čerstvý burger na drevenom stole, prírodzené svetlo...' : 'Napr. pridaj viac zeleného listia, zmeň pozadie na bíelem...'}
+                    value={imgPrompt}
+                    onChange={e => setImgPrompt(e.target.value)}
+                    style={{ resize: 'none', marginBottom: 8, fontSize: 12 }}
+                  />
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <button
+                      className="btn-brand"
+                      onClick={imgMode === 'generate' ? handleGenerateNew : handleEditWithPrompt}
+                      disabled={imgLoading || !imgPrompt.trim()}
+                      style={{ flex: 1, padding: '8px', fontSize: 12, opacity: (imgLoading || !imgPrompt.trim()) ? 0.5 : 1 }}
+                    >
+                      {imgLoading
+                        ? <><Loader2 size={13} style={{ animation: 'spin-slow 1s linear infinite' }} /> Generujem...</>
+                        : <><Sparkles size={13} /> {imgMode === 'generate' ? 'Vytvoriť nový' : 'Upraviť'}</>
+                      }
+                    </button>
+                    <button onClick={() => { setImgMode('none'); setImgPrompt('') }} className="btn-ghost" style={{ fontSize: 12 }}>Zrušiť</button>
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <div style={{ width: '100%', aspectRatio: '1', borderRadius: 'var(--radius)', background: 'var(--bg-hover)', border: '1px dashed var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 14, flexDirection: 'column', gap: 8, color: 'var(--text-muted)' }}>
