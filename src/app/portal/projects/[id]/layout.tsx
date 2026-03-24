@@ -20,7 +20,6 @@ export default async function ProjectLayout({
     .from('projects')
     .select('id, name, brand_colors')
     .eq('id', id)
-    .eq('client_id', user.id)
     .single()
 
   if (!project) redirect('/portal/projects')
