@@ -25,13 +25,25 @@ const PROJECT_TYPES = [
   { id: 'company', label: 'Firma / Agentúra', emoji: '🏢', desc: 'Tím, služby, B2B' },
 ]
 
+const TEMPLATE_PREVIEWS: Record<string, string> = {
+  restaurant: 'restaurant',
+  hotel: 'hotel',
+  influencer: 'influencer',
+  shop: 'shop',
+  company: 'company',
+}
+
 const TEMPLATES = [
-  { id: 'modern-minimal', label: 'Minimalistický', desc: 'Biele pozadie, veľa priestoru, geometricky čistý', preview: '/style-previews/modern-minimal.jpg' },
-  { id: 'bold-vibrant', label: 'Bold & Vibrant', desc: 'Energie, syté farby, vysoký kontrast', preview: '/style-previews/bold-vibrant.jpg' },
-  { id: 'elegant-luxury', label: 'Elegantý', desc: 'Tmavé tóny, zlatové akcenty, luxusný feel', preview: '/style-previews/elegant-luxury.jpg' },
-  { id: 'playful-casual', label: 'Hravý', desc: 'Pastelky, priateľský, živahavný', preview: '/style-previews/playful-casual.jpg' },
-  { id: 'rustic-natural', label: 'Rustikálny', desc: 'Drevo, proda, zeme, prirozené svetlo', preview: '/style-previews/rustic-natural.jpg' },
+  { id: 'modern-minimal', label: 'Minimalistický', desc: 'Biele pozadie, veľa priestoru, geometricky čistý' },
+  { id: 'bold-vibrant', label: 'Bold & Vibrant', desc: 'Energie, syté farby, vysoký kontrast' },
+  { id: 'elegant-luxury', label: 'Elegantný', desc: 'Tmavé tóny, zlatové akcenty, luxusný feel' },
+  { id: 'playful-casual', label: 'Hravý', desc: 'Pastelky, priateľský, živahavný' },
+  { id: 'rustic-natural', label: 'Rustikálny', desc: 'Drevo, príroda, zemité tóny' },
 ]
+
+function getPreviewFolder(projectType: string | null) {
+  return TEMPLATE_PREVIEWS[projectType || ''] || 'restaurant'
+}
 
 const MOODS = [
   { id: 'warm', label: 'Teplý', color: '#F59E0B' },
@@ -244,7 +256,7 @@ export default function ProjectSettingsPage() {
                 }}>
                   <div style={{ position: 'relative' }}>
                     <img
-                      src={t.preview}
+                      src={`/style-previews/${getPreviewFolder(projectType)}/${t.id}.jpg`}
                       alt={t.label}
                       style={{ width: '100%', height: 90, objectFit: 'cover', display: 'block' }}
                     />
