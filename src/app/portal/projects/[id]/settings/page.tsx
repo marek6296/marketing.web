@@ -26,11 +26,11 @@ const PROJECT_TYPES = [
 ]
 
 const TEMPLATES = [
-  { id: 'modern-minimal', label: 'Minimalistický', desc: 'Čistý, moderný, veľa priestoru' },
-  { id: 'bold-vibrant', label: 'Bold & Vibrant', desc: 'Energické farby, vysoký kontrast' },
-  { id: 'elegant-luxury', label: 'Elegantný', desc: 'Tmavé tóny, luxusný feel' },
-  { id: 'playful-casual', label: 'Hravý', desc: 'Priateľský, organické tvary' },
-  { id: 'rustic-natural', label: 'Rustikálny', desc: 'Prírodné tóny, drevo, zemité' },
+  { id: 'modern-minimal', label: 'Minimalistický', desc: 'Biele pozadie, veľa priestoru, geometricky čistý', preview: '/style-previews/modern-minimal.jpg' },
+  { id: 'bold-vibrant', label: 'Bold & Vibrant', desc: 'Energie, syté farby, vysoký kontrast', preview: '/style-previews/bold-vibrant.jpg' },
+  { id: 'elegant-luxury', label: 'Elegantý', desc: 'Tmavé tóny, zlatové akcenty, luxusný feel', preview: '/style-previews/elegant-luxury.jpg' },
+  { id: 'playful-casual', label: 'Hravý', desc: 'Pastelky, priateľský, živahavný', preview: '/style-previews/playful-casual.jpg' },
+  { id: 'rustic-natural', label: 'Rustikálny', desc: 'Drevo, proda, zeme, prirozené svetlo', preview: '/style-previews/rustic-natural.jpg' },
 ]
 
 const MOODS = [
@@ -229,25 +229,44 @@ export default function ProjectSettingsPage() {
         <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 18 }}>Nastavte vizuálny štýl pre konzistentné generovanie obrázkov.</p>
 
         {/* Template */}
-        <div style={{ marginBottom: 18 }}>
-          <label className="input-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Layers size={12} /> Šablóna</label>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            {TEMPLATES.map(t => (
-              <button key={t.id} type="button" onClick={() => setImageTemplate(t.id)} style={{
-                display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px',
-                borderRadius: 'var(--radius-sm)', cursor: 'pointer', textAlign: 'left', fontFamily: 'Inter',
-                border: `1px solid ${imageTemplate === t.id ? 'var(--brand-border)' : 'var(--border)'}`,
-                background: imageTemplate === t.id ? 'var(--brand-bg)' : 'transparent',
-                transition: 'all 100ms',
-              }}>
-                <div style={{ width: 6, height: 6, borderRadius: '50%', background: imageTemplate === t.id ? 'var(--brand)' : 'var(--text-faint)', flexShrink: 0 }} />
-                <div style={{ flex: 1 }}>
-                  <span style={{ fontWeight: imageTemplate === t.id ? 600 : 500, fontSize: 13, color: imageTemplate === t.id ? 'var(--brand-dark)' : 'var(--text-primary)' }}>{t.label}</span>
-                  <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 8 }}>{t.desc}</span>
-                </div>
-              </button>
-            ))}
+        <div style={{ marginBottom: 20 }}>
+          <label className="input-label" style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}><Layers size={12} /> Vizuálny štýl obrázkov</label>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
+            {TEMPLATES.map(t => {
+              const active = imageTemplate === t.id
+              return (
+                <button key={t.id} type="button" onClick={() => setImageTemplate(t.id)} style={{
+                  padding: 0, borderRadius: 'var(--radius)', cursor: 'pointer', textAlign: 'left', fontFamily: 'Inter',
+                  border: `2px solid ${active ? 'var(--brand)' : 'var(--border)'}`,
+                  background: active ? 'var(--brand-bg)' : 'var(--bg-base)',
+                  overflow: 'hidden', transition: 'all 150ms',
+                  boxShadow: active ? '0 0 0 1px var(--brand)' : 'none',
+                }}>
+                  <div style={{ position: 'relative' }}>
+                    <img
+                      src={t.preview}
+                      alt={t.label}
+                      style={{ width: '100%', height: 90, objectFit: 'cover', display: 'block' }}
+                    />
+                    {active && (
+                      <div style={{
+                        position: 'absolute', top: 6, right: 6,
+                        background: 'var(--brand)', borderRadius: '50%',
+                        width: 20, height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      }}>
+                        <CheckCircle2 size={12} color="white" />
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ padding: '8px 10px' }}>
+                    <div style={{ fontWeight: 600, fontSize: 12, color: active ? 'var(--brand-dark)' : 'var(--text-primary)', marginBottom: 2 }}>{t.label}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.4 }}>{t.desc}</div>
+                  </div>
+                </button>
+              )
+            })}
           </div>
+          <p style={{ fontSize: 11, color: 'var(--text-faint)', marginTop: 8 }}>Zvolený štýl sa automaticky aplikuje pri generovaní obrázkov pre tento projekt.</p>
         </div>
 
         {/* Mood */}
