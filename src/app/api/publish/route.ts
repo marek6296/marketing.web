@@ -125,23 +125,44 @@ export async function POST(req: NextRequest) {
         if (containerData.error) {
           results.errors.push(`Instagram: ${containerData.error.message}`)
         } else {
-          // Step 2: Publish the container
-          const publishRes = await fetch(
-            `https://graph.facebook.com/v21.0/${project.instagram_account_id}/media_publish`,
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                creation_id: containerData.id,
-                access_token: accessToken,
-              }),
+          const containerId = containerData.id
+
+          // Step 2: Poll until container is FINISHED (Meta needs time to process)
+          let statusCode = 'IN_PROGRESS'
+          let attempts = 0
+          const maxAttempts = 30 // up to 30s
+          while (statusCode === 'IN_PROGRESS' && attempts < maxAttempts) {
+            await new Promise(r => setTimeout(r, 1000))
+            const statusRes = await fetch(
+              `https://graph.facebook.com/v21.0/${containerId}?fields=status_code&access_token=${accessToken}`
+            )
+            const statusData = await statusRes.json()
+            statusCode = statusData.status_code || 'ERROR'
+            attempts++
+            console.log(`[IG] Container status attempt ${attempts}: ${statusCode}`)
+          }
+
+          if (statusCode === 'FINISHED') {
+            // Step 3: Publish the container
+            const publishRes = await fetch(
+              `https://graph.facebook.com/v21.0/${project.instagram_account_id}/media_publish`,
+              {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  creation_id: containerId,
+                  access_token: accessToken,
+                }),
+              }
+            )
+            const publishData = await publishRes.json()
+            if (publishData.error) {
+              results.errors.push(`Instagram: ${publishData.error.message}`)
+            } else {
+              results.instagram = publishData.id
             }
-          )
-          const publishData = await publishRes.json()
-          if (publishData.error) {
-            results.errors.push(`Instagram: ${publishData.error.message}`)
           } else {
-            results.instagram = publishData.id
+            results.errors.push(`Instagram: Spracovanie médiá zlyhalo (status: ${statusCode}). Skúste znova.`)
           }
         }
       }
