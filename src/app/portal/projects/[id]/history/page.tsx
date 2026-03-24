@@ -13,7 +13,6 @@ export default async function ProjectHistoryPage({ params }: { params: Promise<{
     .from('posts')
     .select('*')
     .eq('project_id', id)
-    .eq('client_id', user.id)
     .order('created_at', { ascending: false })
 
   return (

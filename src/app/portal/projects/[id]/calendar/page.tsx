@@ -13,7 +13,6 @@ export default async function ProjectCalendarPage({ params }: { params: Promise<
     .from('posts')
     .select('*')
     .eq('project_id', id)
-    .eq('client_id', user.id)
     .in('status', ['scheduled', 'published'])
     .order('scheduled_at', { ascending: true })
 
