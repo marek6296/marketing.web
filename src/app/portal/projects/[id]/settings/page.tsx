@@ -245,8 +245,10 @@ export default function ProjectSettingsPage() {
         </div>
         <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 18 }}>Nastavte vizuálny štýl pre konzistentné generovanie obrázkov.</p>
 
-        {/* Template */}
-        <div style={{ marginBottom: 20 }}>
+        {projectType !== 'custom' && (
+          <>
+            {/* Template */}
+            <div style={{ marginBottom: 20 }}>
           <label className="input-label" style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}><Layers size={12} /> Vizuálny štýl obrázkov</label>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
             {TEMPLATES.map(t => {
@@ -337,8 +339,11 @@ export default function ProjectSettingsPage() {
             ))}
           </div>
         </div>
+          </>
+        )}
 
-        {/* Permanent image prompt */}
+        {/* Permanent image prompt - only for custom type */}
+        {projectType === 'custom' && (
         <div style={{
           marginTop: 20, padding: '14px', borderRadius: 'var(--radius)',
           border: `1px solid ${projectType === 'custom' ? 'var(--brand-border)' : 'var(--border)'}`,
@@ -364,6 +369,7 @@ export default function ProjectSettingsPage() {
             <p style={{ fontSize: 11, color: 'var(--success)', marginTop: 4 }}>✅ Aktívny – zahrnutý pri každom generovaní obrázku.</p>
           )}
         </div>
+        )}
       </div>
 
       {/* Facebook */}
