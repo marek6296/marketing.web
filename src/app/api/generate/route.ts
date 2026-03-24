@@ -124,7 +124,8 @@ export async function POST(req: NextRequest) {
 
   // Load project brand settings
   let projectName = 'Projekt'
-  let brandPrompt = 'Profesionálny marketing'
+  let projectDescription = ''
+  let brandStylePrompt = ''
   let brandColors: { primary?: string; secondary?: string } | null = null
   let imageStyle: Record<string, string> | null = null
   let projectType = 'restaurant'
@@ -138,12 +139,16 @@ export async function POST(req: NextRequest) {
 
     if (project) {
       projectName = project.name
-      brandPrompt = project.brand_style_prompt || `Marketing pre ${project.name}. ${project.description || ''}`
+      projectDescription = project.description || ''
+      brandStylePrompt = project.brand_style_prompt || ''
       brandColors = project.brand_colors as { primary?: string; secondary?: string } | null
       imageStyle = project.image_style as Record<string, string> | null
       projectType = project.project_type || 'restaurant'
     }
   }
+
+  // Build the combined brand context for image generation (legacy compat)
+  const brandPrompt = brandStylePrompt || `${projectName}. ${projectDescription}`.trim()
 
   const apiKey = process.env.GEMINI_API_KEY
   let imageUrl: string | null = null
@@ -158,20 +163,25 @@ export async function POST(req: NextRequest) {
       // 1. Generate caption (skip for image-only mode)
       if (mode !== 'image-only') {
         const typeCtx = PROJECT_TYPE_CONTEXT[projectType]
-        const textPrompt = `Si expert na marketing. Napíš príspevok na sociálne siete.
+        const textPrompt = `Si expert na marketing pre ${typeCtx?.label || 'podnik'}. Napíš príspevok na sociálne siete.
 
-PROJEKT: ${projectName}
-BRAND: ${brandPrompt}
-TÉMA: ${topic || 'Priložená fotka'}
-PLATFORMA: ${platform === 'both' ? 'Facebook aj Instagram' : platform}
-TYP PROJEKTU: ${typeCtx?.textContext || 'Profesionálny podnik.'}
-${imageData ? '\nPozri si priloženú fotku a napíš príspevok, ktorý presne zodpovedá tomu, čo na nej vidíš.' : ''}
+INFO O PROJEKTE:
+- Názov: ${projectName}
+${projectDescription ? `- Popis: ${projectDescription}` : ''}
+- Typ podniku: ${typeCtx?.label || projectType}
+${typeCtx?.textContext ? `- Kontext: ${typeCtx.textContext}` : ''}
+${brandStylePrompt ? `- Brand hlas / štýl: ${brandStylePrompt}` : ''}
+
+PRÍSPEVOK:
+- Téma: ${topic || 'Priložená fotka'}
+- Platforma: ${platform === 'both' ? 'Facebook aj Instagram' : platform === 'facebook' ? 'Facebook' : 'Instagram'}
+${imageData ? '- Priložená fotka: áno – napíš príspevok ktorý presne opíše čo je na fotke a prepáj to s témou' : ''}
 
 Napíš:
-1. Hlavný text príspevku v slovenčine (max 150 slov, pútavý, s emojis)
-2. Relevantné hashtags (5-8) ktoré sú späté s témou a typom podniku
+1. Hlavný text príspevku v slovenčine (max 150 slóv, pútavý, autentický pre tento typ podniku, s emojis)
+2. Relevantné hashtags (5-8) – musia byť späté konkrétne s témou a typom podniku, nie genérické
 
-Formát: Len text príspevku s hashtagmi na konci. Žiadne vysvetlenia.`
+Dôležité: Použij správny tón pre tento typ podniku. Formát: Len text príspevku s hashtagmi na konci. Žiadne vysvetlenia.Žiadne uvod. Iba text.`
 
         // Build contents – with image if provided
         const contents = imageData
