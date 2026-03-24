@@ -398,8 +398,14 @@ function PostDrawer({ post, projectId, onClose, onUpdate, onDelete, hasMetaToken
 
         {/* ── Actions ── */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingTop: 8, borderTop: '1px solid var(--border)' }}>
-          {post.status === 'draft' && (
+          {(post.status === 'draft' || post.status === 'failed') && (
             <>
+              {post.status === 'failed' && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 12px', background: 'var(--error-bg)', border: '1px solid var(--error-border)', borderRadius: 'var(--radius)' }}>
+                  <AlertCircle size={13} color="var(--error)" style={{ flexShrink: 0 }} />
+                  <span style={{ fontSize: 12, color: 'var(--error)', fontWeight: 600 }}>Publikovanie zlyhalo – skúste znova</span>
+                </div>
+              )}
               {hasMetaToken ? (
                 <>
                   {/* Platform selector */}
@@ -430,7 +436,7 @@ function PostDrawer({ post, projectId, onClose, onUpdate, onDelete, hasMetaToken
                   <button className="btn-brand" onClick={handleMetaPublish} disabled={publishing} style={{ padding: '11px', opacity: publishing ? 0.6 : 1 }}>
                     {publishing
                       ? <><Loader2 size={14} style={{ animation: 'spin-slow 1s linear infinite' }} /> Publikujem...</>
-                      : <><Send size={14} /> Publikovať na {publishPlatform === 'both' ? 'Facebook & Instagram' : publishPlatform === 'facebook' ? 'Facebook' : 'Instagram'}</>}
+                      : <><Send size={14} /> {post.status === 'failed' ? 'Skúsiť znova' : `Publikovať na ${publishPlatform === 'both' ? 'Facebook & Instagram' : publishPlatform === 'facebook' ? 'Facebook' : 'Instagram'}`}</> }
                   </button>
                 </>
               ) : (
