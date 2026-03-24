@@ -24,7 +24,6 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     .from('projects')
     .select('meta_access_token, facebook_page_id')
     .eq('id', projectId)
-    .eq('client_id', user.id)
     .single()
 
   return NextResponse.json({

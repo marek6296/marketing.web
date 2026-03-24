@@ -134,7 +134,6 @@ export async function POST(req: NextRequest) {
       .from('projects')
       .select('name, brand_style_prompt, brand_colors, description, image_style, project_type')
       .eq('id', projectId)
-      .eq('client_id', user.id)
       .single()
 
     if (project) {

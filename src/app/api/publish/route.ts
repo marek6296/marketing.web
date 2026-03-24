@@ -27,7 +27,6 @@ export async function POST(req: NextRequest) {
     .from('posts')
     .select('*')
     .eq('id', postId)
-    .eq('client_id', user.id)
     .single()
 
   if (!post) return NextResponse.json({ error: 'Príspevok neexistuje' }, { status: 404 })
@@ -37,7 +36,6 @@ export async function POST(req: NextRequest) {
     .from('projects')
     .select('facebook_page_id, instagram_account_id, meta_access_token')
     .eq('id', post.project_id)
-    .eq('client_id', user.id)
     .single()
 
   if (!project?.facebook_page_id || !project?.meta_access_token) {

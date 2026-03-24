@@ -13,7 +13,6 @@ export async function GET(request: NextRequest) {
     .from('projects')
     .select('*')
     .eq('id', id)
-    .eq('client_id', user.id)
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 404 })

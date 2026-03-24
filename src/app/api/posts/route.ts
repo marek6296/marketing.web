@@ -51,7 +51,6 @@ export async function PATCH(req: NextRequest) {
     .from('posts')
     .update(updates)
     .eq('id', id)
-    .eq('client_id', user.id)
     .select()
     .single()
 

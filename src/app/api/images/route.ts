@@ -18,7 +18,6 @@ export async function GET(req: NextRequest) {
   let query = supabase
     .from('image_library')
     .select('*')
-    .eq('client_id', user.id)
     .order('created_at', { ascending: false })
 
   if (projectId) query = query.eq('project_id', projectId)
