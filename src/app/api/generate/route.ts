@@ -133,7 +133,7 @@ export async function POST(req: NextRequest) {
   if (projectId) {
     const { data: project } = await supabase
       .from('projects')
-      .select('name, brand_style_prompt, brand_colors, description, image_style, project_type')
+      .select('name, brand_style_prompt, brand_colors, description, image_style, project_type, image_prompt')
       .eq('id', projectId)
       .single()
 
@@ -144,6 +144,9 @@ export async function POST(req: NextRequest) {
       brandColors = project.brand_colors as { primary?: string; secondary?: string } | null
       imageStyle = project.image_style as Record<string, string> | null
       projectType = project.project_type || 'restaurant'
+      if (project.image_prompt) brandStylePrompt = brandStylePrompt
+        ? `${brandStylePrompt}\n\nStály vizuálny kontext: ${project.image_prompt}`
+        : project.image_prompt
     }
   }
 

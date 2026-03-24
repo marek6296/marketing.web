@@ -15,6 +15,7 @@ type Project = {
   image_style: { template: string; mood: string; background: string; photoStyle: string } | null
   facebook_page_id: string | null; instagram_account_id: string | null; meta_access_token: string | null
   project_type: string | null
+  image_prompt: string | null
 }
 
 const PROJECT_TYPES = [
@@ -23,6 +24,7 @@ const PROJECT_TYPES = [
   { id: 'influencer', label: 'Osoba / Influencer', emoji: '👤', desc: 'Životný štýl, personálny brand' },
   { id: 'shop', label: 'Obchod / E-shop', emoji: '🛍️', desc: 'Produkty, kolékcie, výpredaj' },
   { id: 'company', label: 'Firma / Agentúra', emoji: '🏢', desc: 'Tím, služby, B2B' },
+  { id: 'custom', label: 'Vlastné', emoji: '✏️', desc: 'Vlastný typ s individuálnym promptom' },
 ]
 
 const TEMPLATE_PREVIEWS: Record<string, string> = {
@@ -82,6 +84,7 @@ export default function ProjectSettingsPage() {
   const [imageBackground, setImageBackground] = useState('gradient')
   const [imagePhotoStyle, setImagePhotoStyle] = useState('studio-lighting')
   const [projectType, setProjectType] = useState('restaurant')
+  const [imagePrompt, setImagePrompt] = useState('')
 
   // Team state
   type Member = { id: string; user_id: string; invited_email: string; created_at: string }
@@ -102,6 +105,7 @@ export default function ProjectSettingsPage() {
         setImagePhotoStyle(p.image_style.photoStyle || 'studio-lighting')
       }
       if (p?.project_type) setProjectType(p.project_type)
+      if (p?.image_prompt) setImagePrompt(p.image_prompt)
       setLoading(false)
     }).catch(() => setLoading(false))
   }, [id])
@@ -155,6 +159,7 @@ export default function ProjectSettingsPage() {
     fd.set('image_background', imageBackground)
     fd.set('image_photo_style', imagePhotoStyle)
     fd.set('project_type', projectType)
+    fd.set('image_prompt', imagePrompt)
     const result = await updateProject(id, fd)
     if (result?.error) { setError(result.error) } else { setSuccess(true); setTimeout(() => setSuccess(false), 3000) }
     setSaving(false)
@@ -331,6 +336,33 @@ export default function ProjectSettingsPage() {
               }}>{s.label}</button>
             ))}
           </div>
+        </div>
+
+        {/* Permanent image prompt */}
+        <div style={{
+          marginTop: 20, padding: '14px', borderRadius: 'var(--radius)',
+          border: `1px solid ${projectType === 'custom' ? 'var(--brand-border)' : 'var(--border)'}`,
+          background: projectType === 'custom' ? 'var(--brand-bg)' : 'var(--bg-hover)',
+          transition: 'all 200ms',
+        }}>
+          <label className="input-label" style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+            ✏️ Stály prompt pre obrázky
+            {projectType === 'custom' && <span className="badge badge-brand" style={{ fontSize: 10 }}>Vlastné</span>}
+          </label>
+          <p style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 8, lineHeight: 1.5 }}>
+            Bude pridaný ku každému generovanému obrázku tohto projektu. Ideálne pre špecifické miesto, produkty alebo štýl.
+          </p>
+          <textarea
+            className="input-field"
+            rows={3}
+            placeholder='Napr. "moderná kancelária v Bratislave, sklenená fasáda, business casual oblečenie, prirodzené svetlo"'
+            value={imagePrompt}
+            onChange={e => setImagePrompt(e.target.value)}
+            style={{ resize: 'vertical', fontSize: 12 }}
+          />
+          {imagePrompt.trim() && (
+            <p style={{ fontSize: 11, color: 'var(--success)', marginTop: 4 }}>✅ Aktívny – zahrnutý pri každom generovaní obrázku.</p>
+          )}
         </div>
       </div>
 
