@@ -29,8 +29,13 @@ const PROJECT_TYPE_CONTEXT: Record<string, {
   },
   company: {
     label: 'Firma / Agentúra',
-    textContext: 'Typ podniku: firma alebo agentúra. Píš o službách, tíme, úspechu, projektoch a odborných vedomostiach. Tón: profesionálny, dôveryhodný, expertþsky.',
+    textContext: 'Typ podniku: firma alebo agentúra. Píš o službách, tíme, úspechu, projektoch a odborných vedomostiach. Tón: profesionálny, dôveryhodný, expertský.',
     imageSubjects: 'modern office, professional team meeting, corporate branding, work environment, business success',
+  },
+  custom: {
+    label: 'Vlastný typ',
+    textContext: 'Vlastný typ projektu – riaď sa popisom projektu a nastaveniami.',
+    imageSubjects: 'professional marketing photography, custom brand visual context',
   },
 }
 
@@ -129,6 +134,8 @@ export async function POST(req: NextRequest) {
   let brandColors: { primary?: string; secondary?: string } | null = null
   let imageStyle: Record<string, string> | null = null
   let projectType = 'restaurant'
+  let referenceImageData: string | null = null
+  let referenceImageMime = 'image/jpeg'
 
   if (projectId) {
     const { data: project } = await supabase
@@ -147,23 +154,17 @@ export async function POST(req: NextRequest) {
       if (project.image_prompt) brandStylePrompt = brandStylePrompt
         ? `${brandStylePrompt}\n\nStály vizuálny kontext: ${project.image_prompt}`
         : project.image_prompt
-    }
-  }
-
-  // Fetch reference image if set (for custom project type)
-  let referenceImageData: string | null = null
-  let referenceImageMime = 'image/jpeg'
-  if (projectId) {
-    const { data: proj2 } = await supabase.from('projects').select('image_reference_url').eq('id', projectId).single()
-    if (proj2?.image_reference_url) {
-      try {
-        const refRes = await fetch(proj2.image_reference_url)
-        if (refRes.ok) {
-          const buf = await refRes.arrayBuffer()
-          referenceImageData = Buffer.from(buf).toString('base64')
-          referenceImageMime = refRes.headers.get('content-type') || 'image/jpeg'
-        }
-      } catch { /* ignore fetch errors for reference image */ }
+      // Fetch reference image if URL is set
+      if (project.image_reference_url) {
+        try {
+          const refRes = await fetch(project.image_reference_url)
+          if (refRes.ok) {
+            const buf = await refRes.arrayBuffer()
+            referenceImageData = Buffer.from(buf).toString('base64')
+            referenceImageMime = refRes.headers.get('content-type') || 'image/jpeg'
+          }
+        } catch { /* ignore */ }
+      }
     }
   }
 
