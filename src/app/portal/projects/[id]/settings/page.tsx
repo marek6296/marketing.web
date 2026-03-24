@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 import { updateProject, deleteProject } from '@/app/actions/projects'
 import {
   ExternalLink, CheckCircle2, AlertTriangle, Trash2, Loader2,
@@ -16,6 +17,7 @@ type Project = {
   facebook_page_id: string | null; instagram_account_id: string | null; meta_access_token: string | null
   project_type: string | null
   image_prompt: string | null
+  image_reference_url: string | null
 }
 
 const PROJECT_TYPES = [
@@ -85,6 +87,9 @@ export default function ProjectSettingsPage() {
   const [imagePhotoStyle, setImagePhotoStyle] = useState('studio-lighting')
   const [projectType, setProjectType] = useState('restaurant')
   const [imagePrompt, setImagePrompt] = useState('')
+  const [imageRefUrl, setImageRefUrl] = useState<string | null>(null)
+  const [uploadingRef, setUploadingRef] = useState(false)
+  const refFileInputRef = useRef<HTMLInputElement>(null)
 
   // Team state
   type Member = { id: string; user_id: string; invited_email: string; created_at: string }
@@ -106,6 +111,7 @@ export default function ProjectSettingsPage() {
       }
       if (p?.project_type) setProjectType(p.project_type)
       if (p?.image_prompt) setImagePrompt(p.image_prompt)
+      if (p?.image_reference_url) setImageRefUrl(p.image_reference_url)
       setLoading(false)
     }).catch(() => setLoading(false))
   }, [id])
@@ -150,6 +156,24 @@ export default function ProjectSettingsPage() {
     if (res.ok) setMembers(prev => prev.filter(m => m.id !== memberId))
   }
 
+  async function handleRefUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploadingRef(true)
+    try {
+      const supabase = createClient()
+      const ext = file.name.split('.').pop() || 'jpg'
+      const filename = `project-references/${id}/reference.${ext}`
+      const { error } = await supabase.storage.from('post-images').upload(filename, file, { upsert: true, contentType: file.type })
+      if (!error) {
+        const { data } = supabase.storage.from('post-images').getPublicUrl(filename)
+        setImageRefUrl(data.publicUrl)
+      }
+    } finally {
+      setUploadingRef(false)
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setSaving(true); setError(null); setSuccess(false)
@@ -160,6 +184,7 @@ export default function ProjectSettingsPage() {
     fd.set('image_photo_style', imagePhotoStyle)
     fd.set('project_type', projectType)
     fd.set('image_prompt', imagePrompt)
+    fd.set('image_reference_url', imageRefUrl || '')
     const result = await updateProject(id, fd)
     if (result?.error) { setError(result.error) } else { setSuccess(true); setTimeout(() => setSuccess(false), 3000) }
     setSaving(false)
@@ -368,6 +393,58 @@ export default function ProjectSettingsPage() {
           {imagePrompt.trim() && (
             <p style={{ fontSize: 11, color: 'var(--success)', marginTop: 4 }}>✅ Aktívny – zahrnutý pri každom generovaní obrázku.</p>
           )}
+
+          {/* Reference image upload */}
+          <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+            <label className="input-label" style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+              🖼️ Referenčný obrázok štýlu
+            </label>
+            <p style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 10, lineHeight: 1.5 }}>
+              Nahraj obrázok – jeho vizuálny štýl (farby, osvetlenie, kompozícia) bude použitý pri každom generovaní.
+            </p>
+            <input
+              ref={refFileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleRefUpload}
+              style={{ display: 'none' }}
+            />
+            <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+              {imageRefUrl && (
+                <div style={{ position: 'relative', flexShrink: 0 }}>
+                  <img
+                    src={imageRefUrl}
+                    alt="Referenčný obrázok"
+                    style={{ width: 100, height: 100, objectFit: 'cover', borderRadius: 'var(--radius)', border: '2px solid var(--brand)' }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setImageRefUrl(null)}
+                    style={{
+                      position: 'absolute', top: -6, right: -6,
+                      width: 20, height: 20, borderRadius: '50%',
+                      background: 'var(--danger)', color: 'white',
+                      border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: 12, lineHeight: 1,
+                    }}
+                  >×</button>
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={() => refFileInputRef.current?.click()}
+                disabled={uploadingRef}
+                style={{
+                  padding: '8px 14px', borderRadius: 'var(--radius)', cursor: 'pointer', fontFamily: 'Inter',
+                  border: '1px dashed var(--border)', background: 'transparent',
+                  color: 'var(--text-secondary)', fontSize: 12,
+                  display: 'flex', alignItems: 'center', gap: 6,
+                }}
+              >
+                {uploadingRef ? <><Loader2 size={12} style={{ animation: 'spin-slow 1s linear infinite' }} /> Nahrávam...</> : <>{imageRefUrl ? '🔄 Zmeniť obrázok' : '📤 Nahrať obrázok'}</>}
+              </button>
+            </div>
+          </div>
         </div>
         )}
       </div>

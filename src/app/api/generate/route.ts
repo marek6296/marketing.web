@@ -133,7 +133,7 @@ export async function POST(req: NextRequest) {
   if (projectId) {
     const { data: project } = await supabase
       .from('projects')
-      .select('name, brand_style_prompt, brand_colors, description, image_style, project_type, image_prompt')
+      .select('name, brand_style_prompt, brand_colors, description, image_style, project_type, image_prompt, image_reference_url')
       .eq('id', projectId)
       .single()
 
@@ -147,6 +147,23 @@ export async function POST(req: NextRequest) {
       if (project.image_prompt) brandStylePrompt = brandStylePrompt
         ? `${brandStylePrompt}\n\nStály vizuálny kontext: ${project.image_prompt}`
         : project.image_prompt
+    }
+  }
+
+  // Fetch reference image if set (for custom project type)
+  let referenceImageData: string | null = null
+  let referenceImageMime = 'image/jpeg'
+  if (projectId) {
+    const { data: proj2 } = await supabase.from('projects').select('image_reference_url').eq('id', projectId).single()
+    if (proj2?.image_reference_url) {
+      try {
+        const refRes = await fetch(proj2.image_reference_url)
+        if (refRes.ok) {
+          const buf = await refRes.arrayBuffer()
+          referenceImageData = Buffer.from(buf).toString('base64')
+          referenceImageMime = refRes.headers.get('content-type') || 'image/jpeg'
+        }
+      } catch { /* ignore fetch errors for reference image */ }
     }
   }
 
@@ -198,13 +215,23 @@ Dôležité: Použij správny tón pre tento typ podniku. Formát: Len text prí
         caption = textResult.text ?? ''
       }
 
-      // 2. Generate image with Nano Banana 2
+      // 2. Generate image
       try {
-        const imagePrompt = buildImagePrompt(projectName, topic, brandPrompt, brandColors, imageStyle, projectType)
+        const baseImagePrompt = buildImagePrompt(projectName, topic, brandPrompt, brandColors, imageStyle, projectType)
+
+        // Build contents: if reference image exists, prepend it as style guide
+        const imageContents = referenceImageData
+          ? [{
+              parts: [
+                { inlineData: { data: referenceImageData, mimeType: referenceImageMime } },
+                { text: `Použi tento referenčný obrázok ako vizuálny inšpirátor – zachovaj rovnaký štýl, farebnosť, osvetlenie a kompozíciu.\n\n${baseImagePrompt}` },
+              ]
+            }]
+          : baseImagePrompt
 
         const imageResult = await ai.models.generateContent({
           model: 'gemini-3.1-flash-image-preview',
-          contents: imagePrompt,
+          contents: imageContents,
           config: {
             responseModalities: ['Image'],
           },

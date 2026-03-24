@@ -46,6 +46,7 @@ export async function updateProject(projectId: string, formData: FormData) {
       photoStyle: formData.get('image_photo_style') as string || 'studio-lighting',
     },
     image_prompt: formData.get('image_prompt') as string || null,
+    image_reference_url: formData.get('image_reference_url') as string || null,
     facebook_page_id: formData.get('facebook_page_id') as string || null,
     instagram_account_id: formData.get('instagram_account_id') as string || null,
     meta_access_token: formData.get('meta_access_token') as string || null,
