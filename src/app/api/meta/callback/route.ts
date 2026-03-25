@@ -64,18 +64,7 @@ export async function GET(req: NextRequest) {
       )
     }
 
-    // If multiple pages, redirect to page selection (future) – for now use the first
-    if (pages.length > 1) {
-      // Encode pages in a cookie and redirect to a page-picker UI
-      const encodedPages = Buffer.from(JSON.stringify({ pages, projectId })).toString('base64url')
-      const response = NextResponse.redirect(
-        `${process.env.NEXT_PUBLIC_APP_URL}/portal/projects/${projectId}/settings/select-page`
-      )
-      response.cookies.set('meta_pages', encodedPages, { httpOnly: true, maxAge: 300, path: '/' })
-      return response
-    }
-
-    // Single page – proceed automatically
+    // Always use the first page (most common case)
     const page = pages[0]
     const pageAccessToken = page.access_token
     const facebookPageId = page.id
