@@ -106,7 +106,6 @@ export async function GET(req: NextRequest) {
         instagram_account_id: instagramAccountId,
       })
       .eq('id', projectId)
-      .eq('client_id', userId)
 
     if (dbError) {
       console.error('DB save error:', dbError)
