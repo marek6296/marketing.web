@@ -110,10 +110,6 @@ export async function POST(req: NextRequest) {
         }
         if (isStory) {
           containerParams.media_type = 'STORIES'
-          // Link sticker — only supported for Stories
-          if (post.link_sticker_url) {
-            containerParams.link_sticker_url = post.link_sticker_url
-          }
         } else {
           containerParams.caption = post.caption || ''
         }
@@ -127,27 +123,10 @@ export async function POST(req: NextRequest) {
         const containerData = await containerRes.json()
         console.log(`[IG${isStory ? '_STORY' : ''}] container response:`, JSON.stringify(containerData))
 
-        // If link_sticker_url caused an error, retry without it
-        let finalContainerData = containerData
-        if (containerData.error && post.link_sticker_url && isStory) {
-          console.log('[IG_STORY] link_sticker_url rejected, retrying without it...')
-          const paramsWithoutLink = { ...containerParams }
-          delete paramsWithoutLink.link_sticker_url
-          const retryRes = await fetch(`https://graph.facebook.com/v21.0/${igUserId}/media`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(paramsWithoutLink),
-          })
-          finalContainerData = await retryRes.json()
-          console.log(`[IG_STORY] retry response (no link):`, JSON.stringify(finalContainerData))
-          // Surface warning to user that link sticker was not applied
-          results.errors.push(`⚠️ Link sticker nebol pridaný: ${containerData.error.message}`)
-        }
-
-        if (finalContainerData.error) {
-          results.errors.push(`Instagram${isStory ? ' Story' : ''}: ${finalContainerData.error.message}`)
+        if (containerData.error) {
+          results.errors.push(`Instagram${isStory ? ' Story' : ''}: ${containerData.error.message}`)
         } else {
-          const containerId = finalContainerData.id
+          const containerId = containerData.id
 
           // Step 2: Poll until FINISHED
           let statusCode = 'IN_PROGRESS'

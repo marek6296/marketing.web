@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Montserrat:wght@400;500;600;700;800;900&display=swap');
 
 @import "tailwindcss";
 
@@ -482,9 +482,59 @@ h1, h2, h3, h4, h5, h6 {
   to { transform: rotate(360deg); }
 }
 .animate-fade-up { animation: fadeUp 0.4s ease forwards; }
+@keyframes fadeInTextarea {
+  from { opacity: 0; transform: scale(0.97); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes fadeInOverlay {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes slideUpModal {
+  from { opacity: 0; transform: translateY(16px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
 
 /* ─── RESPONSIVE ────────────────────────────────────────────────────── */
 @media (max-width: 768px) {
   .sidebar { display: none; }
   .portal-main { margin-left: 0; padding: 20px 16px; }
+}
+.dropdown-item:hover { background: var(--bg-hover); }
+.feature-card {
+  transition: box-shadow 180ms ease, transform 180ms ease;
+  cursor: default;
+}
+.feature-card:hover {
+  box-shadow: 0 8px 32px rgba(0,0,0,0.07);
+  transform: translateY(-2px);
+}
+
+/* ─── NAVBAR PILLS ──────────────────────────────────────────────────────── */
+.nav-center-menu {
+  display: none;
+}
+@media (min-width: 768px) {
+  .nav-center-menu {
+    display: flex;
+  }
+}
+
+.nav-pill {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  padding: 8px 20px;
+  border-radius: 100px;
+  transition: background 200ms ease, color 200ms ease, box-shadow 200ms ease;
+  cursor: pointer;
+}
+.nav-pill:hover {
+  color: var(--text-primary);
+  background: var(--bg-card);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
 }

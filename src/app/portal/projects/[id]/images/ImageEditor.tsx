@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import {
   X, Type, Crop, MousePointer2, Bold, Italic, Underline,
   AlignLeft, AlignCenter, AlignRight, Trash2, Loader2,
-  Wand2, Plus, Minus, Check, RotateCcw,
+  Wand2, Plus, Minus, Check, RotateCcw, RectangleHorizontal,
 } from 'lucide-react'
 
 /* ── Types ───────────────────────────────────────────────────────── */
@@ -15,12 +15,13 @@ interface TextLayer {
   shadow: boolean; strokeColor: string; strokeWidth: number; maxWidth: number
 }
 interface CropBox { startX: number; startY: number; endX: number; endY: number }
-type Tool = 'select' | 'text' | 'crop' | 'ai'
+type Tool = 'select' | 'text' | 'crop' | 'ai' | 'resize'
 
 interface Props {
   imageUrl: string; projectId: string
   onClose: () => void; onSaved: (newUrl: string) => void
   initialLayers?: TextLayer[]
+  onLayersSaved?: (layers: TextLayer[]) => void
 }
 
 /* ── Pure helpers (outside component) ───────────────────────────── */
@@ -139,7 +140,7 @@ function SBtn({ active, onClick, children, title }: { active: boolean; onClick: 
 }
 
 /* ── Main component ──────────────────────────────────────────────── */
-export default function ImageEditor({ imageUrl, projectId, onClose, onSaved, initialLayers }: Props) {
+export default function ImageEditor({ imageUrl, projectId, onClose, onSaved, initialLayers, onLayersSaved }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const imgRef = useRef<HTMLImageElement | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -165,6 +166,10 @@ export default function ImageEditor({ imageUrl, projectId, onClose, onSaved, ini
   const dragId = useRef<string | null>(null)
   const dragOff = useRef({ x: 0, y: 0 })
   const cropStart = useRef<{ x: number; y: number } | null>(null)
+  const hasDragged = useRef(false)
+  const mouseDownLayer = useRef<string | null>(null)
+  const SNAP = 10
+  const [snapGuides, setSnapGuides] = useState<{ x?: number; y?: number }>({})
 
   /* Load image */
   useEffect(() => {
@@ -210,6 +215,17 @@ export default function ImageEditor({ imageUrl, projectId, onClose, onSaved, ini
         ctx.strokeRect(b.x - 6, b.y - 6, b.w + 12, b.h + 12); ctx.restore()
       }
     }
+    // snap guides
+    if (snapGuides.x !== undefined) {
+      ctx.save(); ctx.strokeStyle = '#ec4899'; ctx.lineWidth = 1; ctx.setLineDash([4, 4]); ctx.globalAlpha = 0.7
+      ctx.beginPath(); ctx.moveTo(snapGuides.x, 0); ctx.lineTo(snapGuides.x, h); ctx.stroke()
+      ctx.restore()
+    }
+    if (snapGuides.y !== undefined) {
+      ctx.save(); ctx.strokeStyle = '#ec4899'; ctx.lineWidth = 1; ctx.setLineDash([4, 4]); ctx.globalAlpha = 0.7
+      ctx.beginPath(); ctx.moveTo(0, snapGuides.y); ctx.lineTo(w, snapGuides.y); ctx.stroke()
+      ctx.restore()
+    }
     // crop overlay
     if (tool === 'crop') {
       const box = cropBox
@@ -233,7 +249,7 @@ export default function ImageEditor({ imageUrl, projectId, onClose, onSaved, ini
       }
       ctx.restore()
     }
-  }, [loaded, sz, layers, selId, tool, cropBox, appliedCrop, editingId])
+  }, [loaded, sz, layers, selId, tool, cropBox, appliedCrop, editingId, snapGuides])
 
   useEffect(() => { render() }, [render])
 
@@ -283,9 +299,10 @@ export default function ImageEditor({ imageUrl, projectId, onClose, onSaved, ini
       const h = hit(p.x, p.y)
       if (h) {
         setSelId(h); isDrag.current = true; dragId.current = h
+        mouseDownLayer.current = h; hasDragged.current = false
         const l = layers.find(x => x.id === h)!
         dragOff.current = { x: p.x - l.x, y: p.y - l.y }
-      } else { commit(); setSelId(null) }
+      } else { commit(); setSelId(null); mouseDownLayer.current = null }
     }
   }
 
@@ -293,11 +310,54 @@ export default function ImageEditor({ imageUrl, projectId, onClose, onSaved, ini
     const p = pos(e)
     if (tool === 'crop' && isCropDrag.current && cropStart.current)
       setCropBox({ startX: cropStart.current.x, startY: cropStart.current.y, endX: p.x, endY: p.y })
-    if (isDrag.current && dragId.current)
-      setLayers(prev => prev.map(l => l.id === dragId.current ? { ...l, x: p.x - dragOff.current.x, y: p.y - dragOff.current.y } : l))
+    if (isDrag.current && dragId.current) {
+      hasDragged.current = true
+      let nx = p.x - dragOff.current.x
+      let ny = p.y - dragOff.current.y
+      const guides: { x?: number; y?: number } = {}
+
+      // Compute visual bounding box center for smarter snapping
+      const ctx = canvasRef.current?.getContext('2d')
+      const dragLayer = layers.find(l => l.id === dragId.current)
+      if (ctx && dragLayer) {
+        const tempLayer = { ...dragLayer, x: nx, y: ny }
+        const b = getTextBounds(ctx, tempLayer)
+        const bcx = b.x + b.w / 2  // visual center X of bounding box
+        const bcy = b.y + b.h / 2  // visual center Y of bounding box
+
+        // Snap bounding-box center to canvas center
+        if (Math.abs(bcx - sz.w / 2) < SNAP) { nx += sz.w / 2 - bcx; guides.x = sz.w / 2 }
+        if (Math.abs(bcy - sz.h / 2) < SNAP) { ny += sz.h / 2 - bcy; guides.y = sz.h / 2 }
+        // Snap to vertical 1/3 and 2/3
+        if (Math.abs(bcy - sz.h / 3) < SNAP) { ny += sz.h / 3 - bcy; guides.y = sz.h / 3 }
+        if (Math.abs(bcy - sz.h * 2 / 3) < SNAP) { ny += sz.h * 2 / 3 - bcy; guides.y = sz.h * 2 / 3 }
+        // Snap to horizontal 1/3 and 2/3
+        if (Math.abs(bcx - sz.w / 3) < SNAP) { nx += sz.w / 3 - bcx; guides.x = sz.w / 3 }
+        if (Math.abs(bcx - sz.w * 2 / 3) < SNAP) { nx += sz.w * 2 / 3 - bcx; guides.x = sz.w * 2 / 3 }
+      } else {
+        // Fallback: simple snap
+        if (Math.abs(nx - sz.w / 2) < SNAP) { nx = sz.w / 2; guides.x = sz.w / 2 }
+        if (Math.abs(ny - sz.h / 2) < SNAP) { ny = sz.h / 2; guides.y = sz.h / 2 }
+      }
+
+      setSnapGuides(guides)
+      setLayers(prev => prev.map(l => l.id === dragId.current ? { ...l, x: nx, y: ny } : l))
+    }
   }
 
-  function onUp() { isCropDrag.current = false; isDrag.current = false; dragId.current = null }
+  function onUp() {
+    // Single-click on layer (no drag) = open inline edit immediately
+    if (mouseDownLayer.current && !hasDragged.current) {
+      const l = layers.find(x => x.id === mouseDownLayer.current!)
+      if (l) {
+        setEditingId(l.id); setEditText(l.text); setSelId(l.id)
+        setTimeout(() => textareaRef.current?.focus(), 30)
+      }
+    }
+    isCropDrag.current = false; isDrag.current = false; dragId.current = null
+    mouseDownLayer.current = null; hasDragged.current = false
+    setSnapGuides({})
+  }
 
   function onDbl(e: React.MouseEvent) {
     const p = pos(e); const h = hit(p.x, p.y)
@@ -332,6 +392,44 @@ export default function ImageEditor({ imageUrl, projectId, onClose, onSaved, ini
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [selId, editingId, editText]) // eslint-disable-line
+
+  /* AI edit */
+  const [resizeFormat, setResizeFormat] = useState<'1:1' | '9:16' | '16:9' | '4:5'>('4:5')
+  const [resizeLoading, setResizeLoading] = useState(false)
+  const [resizeError, setResizeError] = useState<string | null>(null)
+
+  const RESIZE_FORMATS = [
+    { id: '1:1' as const, label: 'Post 1:1', icon: '⬛', desc: 'Štvorcový post', aspectRatio: '1:1', outputFormat: 'post' },
+    { id: '4:5' as const, label: 'Portrait 4:5', icon: '🖼️', desc: 'Instagram post na výšku', aspectRatio: '4:5', outputFormat: 'post' },
+    { id: '9:16' as const, label: 'Story 9:16', icon: '📱', desc: 'Story / Reels formát', aspectRatio: '9:16', outputFormat: 'story' },
+    { id: '16:9' as const, label: 'Landscape 16:9', icon: '🖥️', desc: 'Horizontálny formát', aspectRatio: '16:9', outputFormat: 'post' },
+  ]
+
+  async function doResize() {
+    setResizeLoading(true); setResizeError(null)
+    try {
+      // Download the current baseUrl as a File, then call enhance with the target aspect ratio
+      const imgRes = await fetch(baseUrlRef.current)
+      const blob = await imgRes.blob()
+      const file = new File([blob], 'img.jpg', { type: blob.type || 'image/jpeg' })
+
+      const format = RESIZE_FORMATS.find(f => f.id === resizeFormat)!
+      const fd = new FormData()
+      fd.append('image', file)
+      fd.append('projectId', projectId)
+      fd.append('enhanceMode', 'professional')
+      fd.append('outputFormat', format.outputFormat)
+
+      const res = await fetch('/api/enhance', { method: 'POST', body: fd })
+      const data = await res.json()
+      if (data.imageUrl) {
+        baseUrlRef.current = data.imageUrl
+        const img = new Image(); img.crossOrigin = 'anonymous'
+        img.onload = () => { imgRef.current = img; setLoaded(false); setTimeout(() => setLoaded(true), 50) }
+        img.src = data.imageUrl
+      } else setResizeError(data.error || 'Chyba')
+    } catch { setResizeError('Sieťová chyba') } finally { setResizeLoading(false) }
+  }
 
   /* AI edit */
   async function doAI() {
@@ -376,6 +474,7 @@ export default function ImageEditor({ imageUrl, projectId, onClose, onSaved, ini
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ imageUrl: data.url, projectId, source: 'enhanced', title: 'Upravený obrázok' }),
         })
+        onLayersSaved?.(layers)  // send current layer state back to parent
         onSaved(data.url)
       }
     } catch (err) { console.error(err) } finally { setSaving(false) }
@@ -400,6 +499,36 @@ export default function ImageEditor({ imageUrl, projectId, onClose, onSaved, ini
         <button onClick={doAI} disabled={!aiPrompt.trim() || aiLoading} className="btn-brand" style={{ opacity: (!aiPrompt.trim() || aiLoading) ? 0.6 : 1, justifyContent: 'center' }}>
           {aiLoading ? <><Loader2 size={14} style={{ animation: 'spin-slow 1s linear infinite' }} /> Upravujem...</> : <><Wand2 size={14} /> Aplikovať prompt</>}
         </button>
+      </div>
+    )
+    if (tool === 'resize') return (
+      <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <Label>Zmeniť rozmer</Label>
+        <p style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.6 }}>AI prispôsobí obrázok zvolenému formátu – zachová obsah a inteligentne doplní krajiny.</p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {RESIZE_FORMATS.map(f => (
+            <button key={f.id} onClick={() => setResizeFormat(f.id)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 10,
+                padding: '10px 12px', borderRadius: 'var(--radius)', cursor: 'pointer', fontFamily: 'Inter',
+                border: `1px solid ${resizeFormat === f.id ? 'var(--brand-border)' : 'var(--border)'}`,
+                background: resizeFormat === f.id ? 'var(--brand-bg)' : 'var(--bg-card)', transition: 'all 150ms',
+                textAlign: 'left', width: '100%',
+              }}>
+              <span style={{ fontSize: 20 }}>{f.icon}</span>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: resizeFormat === f.id ? 700 : 600, color: resizeFormat === f.id ? 'var(--brand-dark)' : 'var(--text-primary)' }}>{f.label}</div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{f.desc}</div>
+              </div>
+              {resizeFormat === f.id && <Check size={14} color="var(--brand)" style={{ marginLeft: 'auto' }} />}
+            </button>
+          ))}
+        </div>
+        {resizeError && <p style={{ fontSize: 11, color: 'var(--error)' }}>⚠️ {resizeError}</p>}
+        <button onClick={doResize} disabled={resizeLoading} className="btn-brand" style={{ opacity: resizeLoading ? 0.6 : 1, justifyContent: 'center', marginTop: 4 }}>
+          {resizeLoading ? <><Loader2 size={14} style={{ animation: 'spin-slow 1s linear infinite' }} /> Prispôsobujem formát...</> : <><RectangleHorizontal size={14} /> Zmeniť rozmer</>}
+        </button>
+        <p style={{ fontSize: 10, color: 'var(--text-faint)', lineHeight: 1.5 }}>⏱ Toto môže trvať 15–30 sekúnd. AI dokreslí chýbajúce časti obrazu.</p>
       </div>
     )
     if (tool === 'select' && sel) return (
@@ -493,6 +622,7 @@ export default function ImageEditor({ imageUrl, projectId, onClose, onSaved, ini
             { icon: <Type size={14} />, l: 'Text (T)', d: 'Klikni na plátno – pridá textový blok' },
             { icon: <Crop size={14} />, l: 'Orezanie (C)', d: 'Ťahaj výber, potom Aplikovať' },
             { icon: <Wand2 size={14} />, l: 'AI Edit', d: 'Uprav obrázok prirodzenou inštrukciou' },
+            { icon: <RectangleHorizontal size={14} />, l: 'Zmeniť rozmer', d: 'AI prispôsobí obrázok novému formátu' },
           ].map(it => (
             <div key={it.l} style={{ display: 'flex', gap: 10, padding: '10px 12px', background: 'var(--bg-hover)', borderRadius: 'var(--radius)' }}>
               <span style={{ color: 'var(--brand)', marginTop: 1 }}>{it.icon}</span>
@@ -517,6 +647,8 @@ export default function ImageEditor({ imageUrl, projectId, onClose, onSaved, ini
         <ToolBtn active={tool === 'crop'} onClick={() => setTool('crop')} title="Orezanie (C)"><Crop size={15} /> Orezanie</ToolBtn>
         <div style={{ width: 1, height: 28, background: 'var(--border)', margin: '0 6px' }} />
         <ToolBtn active={tool === 'ai'} onClick={() => setTool('ai')} title="AI editácia"><Wand2 size={15} /> AI Edit</ToolBtn>
+        <div style={{ width: 1, height: 28, background: 'var(--border)', margin: '0 4px' }} />
+        <ToolBtn active={tool === 'resize'} onClick={() => setTool('resize')} title="Zmeniť rozmer"><RectangleHorizontal size={15} /> Zmeniť rozmer</ToolBtn>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center' }}>
           <button onClick={save} disabled={saving} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 18px', background: 'var(--brand)', color: 'white', border: 'none', borderRadius: 'var(--radius)', cursor: saving ? 'wait' : 'pointer', fontSize: 13, fontWeight: 600, fontFamily: 'Inter', opacity: saving ? 0.7 : 1 }}>
             {saving ? <><Loader2 size={14} style={{ animation: 'spin-slow 1s linear infinite' }} /> Ukladám...</> : <><Check size={14} /> Uložiť kópiu</>}
@@ -536,21 +668,41 @@ export default function ImageEditor({ imageUrl, projectId, onClose, onSaved, ini
               style={{ display: loaded ? 'block' : 'none', cursor: tool === 'text' ? 'text' : tool === 'crop' ? 'crosshair' : 'default', borderRadius: 6, boxShadow: '0 12px 48px rgba(0,0,0,0.5)' }}
               onMouseDown={onDown} onMouseMove={onMove} onMouseUp={onUp} onMouseLeave={onUp} onDoubleClick={onDbl}
             />
-            {/* Inline textarea */}
-            {editingId && editLayer && (
-              <textarea
-                ref={textareaRef} value={editText}
-                onChange={e => setEditText(e.target.value)}
-                onBlur={commit} onKeyDown={e => { if (e.key === 'Escape') commit() }}
-                style={{
-                  position: 'absolute', left: editLayer.x, top: editLayer.y,
-                  background: 'rgba(99,102,241,0.12)', border: '2px solid #6366f1',
-                  color: editLayer.color, font: buildFont(editLayer), textAlign: editLayer.align,
-                  padding: '4px 6px', outline: 'none', resize: 'both', minWidth: 120, minHeight: 48,
-                  borderRadius: 4, backdropFilter: 'blur(2px)', lineHeight: 1.3,
-                }}
-              />
-            )}
+            {/* Inline textarea — positioned to match canvas text bounds */}
+            {editingId && editLayer && (() => {
+              const ctx = canvasRef.current?.getContext('2d')
+              let taLeft = editLayer.x
+              let taTop = editLayer.y
+              let taW = editLayer.maxWidth > 0 ? editLayer.maxWidth + 16 : Math.max(200, sz.w * 0.6)
+              let taH = 48
+
+              // Use actual bounding box for precise positioning
+              if (ctx) {
+                const b = getTextBounds(ctx, editLayer)
+                taLeft = b.x - 6
+                taTop = b.y - 4
+                taW = Math.max(b.w + 20, 160)
+                taH = Math.max(b.h + 12, 48)
+              }
+
+              return (
+                <textarea
+                  ref={textareaRef} value={editText}
+                  onChange={e => setEditText(e.target.value)}
+                  onBlur={commit} onKeyDown={e => { if (e.key === 'Escape') commit() }}
+                  style={{
+                    position: 'absolute', left: taLeft, top: taTop,
+                    width: taW, minHeight: taH,
+                    background: 'rgba(99,102,241,0.10)', border: '2px solid #6366f1',
+                    color: editLayer.color, font: buildFont(editLayer), textAlign: editLayer.align,
+                    padding: '4px 8px', outline: 'none', resize: 'both',
+                    borderRadius: 6, backdropFilter: 'blur(3px)', lineHeight: 1.3, boxSizing: 'border-box',
+                    animation: 'fadeInTextarea 150ms ease-out',
+                    boxShadow: '0 0 0 4px rgba(99,102,241,0.12)',
+                  }}
+                />
+              )
+            })()}
           </div>
         </div>
 

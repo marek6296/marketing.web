@@ -9,54 +9,58 @@ export default async function Navbar() {
   return (
     <nav style={{
       position: 'fixed', top: 0, left: 0, right: 0, zIndex: 1000,
-      background: 'rgba(10, 10, 15, 0.85)',
+      background: 'rgba(255,255,255,0.92)',
       backdropFilter: 'blur(20px)',
-      borderBottom: '1px solid var(--dark-border)',
+      borderBottom: '1px solid var(--border)',
       padding: '0 24px',
     }}>
       <div style={{
-        maxWidth: 1200, margin: '0 auto', height: 68,
+        maxWidth: 1200, margin: '0 auto', height: 64,
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        position: 'relative'
       }}>
         {/* Logo */}
         <Link href="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{
-            width: 36, height: 36, borderRadius: 10,
-            background: 'var(--gradient-primary)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 18, fontWeight: 800,
-          }}>🍽</div>
           <span style={{
-            fontFamily: 'Outfit, sans-serif', fontWeight: 800, fontSize: 20,
-            color: 'var(--text-primary)',
+            fontFamily: "'Montserrat', sans-serif", fontWeight: 900, fontSize: 22,
+            color: 'var(--text-primary)', letterSpacing: '-0.04em',
           }}>
-            Restaurant<span style={{ color: 'var(--brand-primary)' }}>Boost</span>
+            PROJECTBer
           </span>
         </Link>
 
         {/* Nav links */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Link href="/#sluzby" className="btn-ghost">Služby</Link>
-          <Link href="/#ako-to-funguje" className="btn-ghost">Ako to funguje</Link>
-          <Link href="/#kontakt" className="btn-ghost">Kontakt</Link>
+        <div className="nav-center-menu" style={{ 
+          position: 'absolute', left: '50%', transform: 'translateX(-50%)',
+          display: 'flex',
+        }}>
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 4,
+            background: 'var(--bg-hover)', padding: '4px', borderRadius: '100px',
+            border: '1px solid var(--border)', boxShadow: 'inset 0 1px 4px rgba(0,0,0,0.02)'
+          }}>
+            <a href="#features" className="nav-pill">Funkcie</a>
+            <a href="#how-it-works" className="nav-pill">Ako to funguje</a>
+            <a href="#pricing" className="nav-pill">Cenník</a>
+          </div>
         </div>
 
         {/* Auth buttons */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {user ? (
             <>
-              <Link href="/portal/dashboard" className="btn-secondary" style={{ padding: '10px 20px' }}>
+              <Link href="/portal/dashboard" className="btn-primary" style={{ padding: '9px 20px', fontSize: 13 }}>
                 Môj portál
               </Link>
               <form action={logout}>
-                <button type="submit" className="btn-ghost">Odhlásiť</button>
+                <button type="submit" className="btn-ghost" style={{ fontSize: 13 }}>Odhlásiť</button>
               </form>
             </>
           ) : (
             <>
-              <Link href="/login" className="btn-ghost">Prihlásiť sa</Link>
-              <Link href="/register" className="btn-primary" style={{ padding: '10px 20px' }}>
-                Začať zadarmo
+              <Link href="/login" className="btn-ghost" style={{ fontSize: 13 }}>Prihlásiť sa</Link>
+              <Link href="/register" className="btn-primary" style={{ padding: '9px 20px', fontSize: 13 }}>
+                Vyskúšať zadarmo
               </Link>
             </>
           )}

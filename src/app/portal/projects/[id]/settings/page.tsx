@@ -7,7 +7,10 @@ import { updateProject, deleteProject } from '@/app/actions/projects'
 import {
   ExternalLink, CheckCircle2, AlertTriangle, Trash2, Loader2,
   Palette, Camera, Layers, Sun, Users, UserPlus, UserMinus, Crown,
+  Utensils, Hotel, User, ShoppingBag, Building2, Pencil, BookOpen, Info, ArrowRight
 } from 'lucide-react'
+import Link from 'next/link'
+import PromptHelper from '@/components/PromptHelper'
 
 type Project = {
   id: string; name: string; description: string | null
@@ -18,15 +21,17 @@ type Project = {
   project_type: string | null
   image_prompt: string | null
   image_reference_url: string | null
+  brand_logo_url: string | null
+  disable_emojis: boolean | null
 }
 
 const PROJECT_TYPES = [
-  { id: 'restaurant', label: 'Reštaurácia / Kaváreň', emoji: '🍽️', desc: 'Jedlo, nápoje, atmosféra' },
-  { id: 'hotel', label: 'Hotel / Ubytovanie', emoji: '🏨', desc: 'Recepcia, izby, vybavenosť' },
-  { id: 'influencer', label: 'Osoba / Influencer', emoji: '👤', desc: 'Životný štýl, personálny brand' },
-  { id: 'shop', label: 'Obchod / E-shop', emoji: '🛍️', desc: 'Produkty, kolékcie, výpredaj' },
-  { id: 'company', label: 'Firma / Agentúra', emoji: '🏢', desc: 'Tím, služby, B2B' },
-  { id: 'custom', label: 'Vlastné', emoji: '✏️', desc: 'Vlastný typ s individuálnym promptom' },
+  { id: 'restaurant', label: 'Reštaurácia / Kaváreň', icon: Utensils, desc: 'Jedlo, nápoje, atmosféra' },
+  { id: 'hotel', label: 'Hotel / Ubytovanie', icon: Hotel, desc: 'Recepcia, izby, vybavenosť' },
+  { id: 'influencer', label: 'Osoba / Influencer', icon: User, desc: 'Životný štýl, personálny brand' },
+  { id: 'shop', label: 'Obchod / E-shop', icon: ShoppingBag, desc: 'Produkty, kolékcie, výpredaj' },
+  { id: 'company', label: 'Firma / Agentúra', icon: Building2, desc: 'Tím, služby, B2B' },
+  { id: 'custom', label: 'Vlastné', icon: Pencil, desc: 'Vlastný typ s individuálnym promptom' },
 ]
 
 const TEMPLATE_PREVIEWS: Record<string, string> = {
@@ -87,9 +92,13 @@ export default function ProjectSettingsPage() {
   const [imagePhotoStyle, setImagePhotoStyle] = useState('studio-lighting')
   const [projectType, setProjectType] = useState('restaurant')
   const [imagePrompt, setImagePrompt] = useState('')
+  const [brandPrompt, setBrandPrompt] = useState('')
   const [imageRefUrl, setImageRefUrl] = useState<string | null>(null)
   const [uploadingRef, setUploadingRef] = useState(false)
   const refFileInputRef = useRef<HTMLInputElement>(null)
+  const [brandLogoUrl, setBrandLogoUrl] = useState<string | null>(null)
+  const [uploadingLogo, setUploadingLogo] = useState(false)
+  const logoFileInputRef = useRef<HTMLInputElement>(null)
 
   // Team state
   type Member = { id: string; user_id: string; invited_email: string; created_at: string }
@@ -111,7 +120,9 @@ export default function ProjectSettingsPage() {
       }
       if (p?.project_type) setProjectType(p.project_type)
       if (p?.image_prompt) setImagePrompt(p.image_prompt)
+      if (p?.brand_style_prompt) setBrandPrompt(p.brand_style_prompt)
       if (p?.image_reference_url) setImageRefUrl(p.image_reference_url)
+      if (p?.brand_logo_url) setBrandLogoUrl(p.brand_logo_url)
       setLoading(false)
     }).catch(() => setLoading(false))
   }, [id])
@@ -174,6 +185,25 @@ export default function ProjectSettingsPage() {
     }
   }
 
+  async function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploadingLogo(true)
+    try {
+      const supabase = createClient()
+      const ext = file.name.split('.').pop() || 'png'
+      const filename = `project-logos/${id}/logo-${Date.now()}.${ext}`
+      const { error } = await supabase.storage.from('post-images').upload(filename, file, { upsert: true, contentType: file.type })
+      if (!error) {
+        const { data } = supabase.storage.from('post-images').getPublicUrl(filename)
+        setBrandLogoUrl(data.publicUrl)
+      }
+    } finally {
+      setUploadingLogo(false)
+      if (logoFileInputRef.current) logoFileInputRef.current.value = ''
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setSaving(true); setError(null); setSuccess(false)
@@ -185,6 +215,7 @@ export default function ProjectSettingsPage() {
     fd.set('project_type', projectType)
     fd.set('image_prompt', imagePrompt)
     fd.set('image_reference_url', imageRefUrl || '')
+    fd.set('brand_logo_url', brandLogoUrl || '')
     const result = await updateProject(id, fd)
     if (result?.error) { setError(result.error) } else { setSuccess(true); setTimeout(() => setSuccess(false), 3000) }
     setSaving(false)
@@ -213,14 +244,16 @@ export default function ProjectSettingsPage() {
                 type="button"
                 onClick={() => setProjectType(t.id)}
                 style={{
-                  padding: '12px 14px', borderRadius: 'var(--radius)', textAlign: 'left', cursor: 'pointer',
+                  padding: '16px 14px', borderRadius: 'var(--radius)', textAlign: 'left', cursor: 'pointer',
                   border: active ? '2px solid var(--brand)' : '1px solid var(--border)',
-                  background: active ? 'var(--brand-bg)' : 'var(--bg-base)',
+                  background: active ? 'var(--brand-bg)' : 'var(--bg-card)',
                   transition: 'all 150ms',
                 }}
               >
-                <div style={{ fontSize: 22, marginBottom: 4 }}>{t.emoji}</div>
-                <div style={{ fontSize: 12, fontWeight: 700, color: active ? 'var(--brand-dark)' : 'var(--text-primary)', marginBottom: 2 }}>{t.label}</div>
+                <div style={{ marginBottom: 10, display: 'flex', alignItems: 'center' }}>
+                  <t.icon size={24} color={active ? 'var(--brand-dark)' : 'var(--text-muted)'} />
+                </div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: active ? 'var(--brand-dark)' : 'var(--text-primary)', marginBottom: 2 }}>{t.label}</div>
                 <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{t.desc}</div>
               </button>
             )
@@ -231,9 +264,28 @@ export default function ProjectSettingsPage() {
       {/* Basic info */}
       <div className="card" style={{ padding: 20 }}>
         <h2 style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 14, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Základné informácie</h2>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div><label className="input-label">Názov</label><input name="name" className="input-field" defaultValue={project.name} required /></div>
-          <div><label className="input-label">Popis</label><textarea name="description" className="input-field" rows={2} defaultValue={project.description || ''} placeholder="Krátky popis projektu..." /></div>
+        
+        <div style={{ display: 'flex', gap: 20, marginBottom: 18, alignItems: 'flex-start' }}>
+          {/* Logo Uploader */}
+          <div>
+            <label className="input-label" style={{ marginBottom: 8 }}>Vlastný obrázok / Logo</label>
+            <div 
+              style={{ width: 80, height: 80, borderRadius: 'var(--radius)', background: 'var(--bg-hover)', border: '1px dashed var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', position: 'relative', overflow: 'hidden' }}
+              onClick={() => logoFileInputRef.current?.click()}
+            >
+              {uploadingLogo ? <Loader2 size={24} style={{ animation: 'spin-slow 1s linear infinite', color: 'var(--text-muted)' }} /> : 
+               brandLogoUrl ? <img src={brandLogoUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> :
+               <Camera size={24} color="var(--text-faint)" />
+              }
+            </div>
+            {brandLogoUrl && !uploadingLogo && <button type="button" onClick={() => setBrandLogoUrl(null)} style={{ background: 'none', border: 'none', color: 'var(--error)', fontSize: 11, marginTop: 6, cursor: 'pointer', padding: 0 }}>Odstrániť logo</button>}
+            <input type="file" ref={logoFileInputRef} onChange={handleLogoUpload} accept="image/*" style={{ display: 'none' }} />
+          </div>
+
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div><label className="input-label">Názov</label><input name="name" className="input-field" defaultValue={project.name} required /></div>
+            <div><label className="input-label">Popis</label><textarea name="description" className="input-field" rows={2} defaultValue={project.description || ''} placeholder="Krátky popis projektu..." /></div>
+          </div>
         </div>
       </div>
 
@@ -257,9 +309,23 @@ export default function ProjectSettingsPage() {
 
       {/* AI Brand prompt */}
       <div className="card" style={{ padding: 20 }}>
-        <h2 style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 14, textTransform: 'uppercase', letterSpacing: '0.04em' }}>AI Brand Prompt</h2>
-        <textarea name="brand_style_prompt" className="input-field" rows={3} defaultValue={project.brand_style_prompt || ''} placeholder="Popíšte brand – štýl, cieľová skupina, tón komunikácie..." />
-        <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>AI použije tento popis pri generovaní textu aj obrázkov. Čím detailnejší, tým lepšie výsledky.</p>
+        <h2 style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 14, textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: 8 }}>
+          AI Brand Prompt
+          <PromptHelper fieldType="brand" onUse={text => setBrandPrompt(text)} projectId={id} />
+        </h2>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div>
+            <textarea name="brand_style_prompt" className="input-field" rows={8} value={brandPrompt} onChange={e => setBrandPrompt(e.target.value)} placeholder="Popíšte brand – štýl, cieľová skupina, tón komunikácie..." />
+            <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>AI použije tento popis pri generovaní textu aj obrázkov. Čím detailnejší, tým lepšie výsledky.</p>
+          </div>
+          <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer', padding: '12px 14px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', transition: 'all 150ms' }}>
+            <input type="checkbox" name="disable_emojis" defaultChecked={project.disable_emojis || false} style={{ width: 16, height: 16, accentColor: 'var(--brand)', marginTop: 2, cursor: 'pointer' }} />
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>Zakázať systémové Emoji</div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2, lineHeight: 1.4 }}>Ak označíte túto možnosť, AI pri generovaní nových príspevkov a textov vôbec nepoužije emotikony (smajlíky). Vhodné pre vysoko konzervatívne alebo čisté B2B texty.</div>
+            </div>
+          </label>
+        </div>
       </div>
 
       {/* ═══ IMAGE STYLE SETTINGS ═══ */}
@@ -377,6 +443,7 @@ export default function ProjectSettingsPage() {
         }}>
           <label className="input-label" style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
             ✏️ Stály prompt pre obrázky
+            <PromptHelper fieldType="image" onUse={text => setImagePrompt(text)} projectId={id} />
           </label>
           <p style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 8, lineHeight: 1.5 }}>
             Bude pridaný ku každému generovanému obrázku tohto projektu. Ideálne pre špecifické miesto, produkty alebo štýl.
@@ -408,9 +475,9 @@ export default function ProjectSettingsPage() {
               onChange={handleRefUpload}
               style={{ display: 'none' }}
             />
-            <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', flexDirection: 'column' }}>
               {imageRefUrl && (
-                <div style={{ position: 'relative', flexShrink: 0 }}>
+                <div>
                   <img
                     src={imageRefUrl}
                     alt="Referenčný obrázok"
@@ -419,14 +486,10 @@ export default function ProjectSettingsPage() {
                   <button
                     type="button"
                     onClick={() => setImageRefUrl(null)}
-                    style={{
-                      position: 'absolute', top: -6, right: -6,
-                      width: 20, height: 20, borderRadius: '50%',
-                      background: 'var(--danger)', color: 'white',
-                      border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: 12, lineHeight: 1,
-                    }}
-                  >×</button>
+                    style={{ display: 'block', background: 'none', border: 'none', color: 'var(--error)', fontSize: 11, marginTop: 6, cursor: 'pointer', padding: 0 }}
+                  >
+                    Odstrániť referenciu
+                  </button>
                 </div>
               )}
               <button
@@ -452,13 +515,25 @@ export default function ProjectSettingsPage() {
       <div className="card" style={{ padding: 20 }}>
         <h2 style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Facebook & Instagram</h2>
         <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 14 }}>Pripojte sociálne siete pre postovanie.</p>
-        <div style={{ padding: '10px 14px', marginBottom: 14, borderRadius: 'var(--radius)', background: 'var(--info-bg)', border: '1px solid var(--info-border)', fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.8 }}>
-          Token získate tu: <a href="https://developers.facebook.com/tools/explorer/" target="_blank" rel="noreferrer" style={{ color: 'var(--info)', marginLeft: 4 }}>Graph API Explorer <ExternalLink size={11} style={{ verticalAlign: 'middle' }} /></a>
+        {/* Info banner for tokens */}
+        <div style={{ padding: '16px 20px', marginBottom: 20, borderRadius: 'var(--radius-lg)', background: 'linear-gradient(to right, rgba(59,130,246,0.05), rgba(59,130,246,0.01))', border: '1px solid rgba(59,130,246,0.2)', display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+          <div style={{ width: 40, height: 40, borderRadius: 12, background: 'rgba(59,130,246,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <BookOpen size={20} color="#3B82F6" />
+          </div>
+          <div style={{ flex: 1 }}>
+            <h3 style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 }}>Nevieš, kde získať tieto údaje?</h3>
+            <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: 14 }}>
+              Ak si nie si istý, ako získať prístupové údaje pre API Meta (Facebook a Instagram), pripravili sme pre teba podrobného sprievodcu s krok-za-krokom obrázkami. Dozvieš sa tam aj to, ako presne použiť <a href="https://developers.facebook.com/tools/explorer/" target="_blank" rel="noreferrer" style={{ color: '#3B82F6', fontWeight: 500, textDecoration: 'none' }}>Graph API Explorer <ExternalLink size={12} style={{ verticalAlign: 'baseline', opacity: 0.8 }} /></a> na získanie Tokenu.
+            </p>
+            <Link href="/portal/help/meta-setup" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#3B82F6', color: 'white', padding: '8px 16px', borderRadius: 'var(--radius)', fontSize: 13, fontWeight: 500, textDecoration: 'none', transition: 'all 150ms', boxShadow: '0 2px 4px rgba(59,130,246,0.2)' }} onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-1px)'} onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}>
+              Zobraziť Sprievodcu Meta API <ArrowRight size={14} />
+            </Link>
+          </div>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div><label className="input-label">Facebook Page ID</label><input name="facebook_page_id" className="input-field" defaultValue={project.facebook_page_id || ''} placeholder="123456789012345" /></div>
-          <div><label className="input-label">Instagram Account ID <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(voliteľné)</span></label><input name="instagram_account_id" className="input-field" defaultValue={project.instagram_account_id || ''} /></div>
-          <div><label className="input-label">Page Access Token</label><textarea name="meta_access_token" className="input-field" rows={2} defaultValue={project.meta_access_token || ''} style={{ fontFamily: 'monospace', fontSize: 12, resize: 'none' }} /></div>
+          <div><label className="input-label">Instagram Account ID</label><input name="instagram_account_id" className="input-field" defaultValue={project.instagram_account_id || ''} /></div>
+          <div><label className="input-label">Page Access Token</label><textarea name="meta_access_token" className="input-field" rows={6} defaultValue={project.meta_access_token || ''} style={{ fontFamily: 'monospace', fontSize: 12, resize: 'vertical' }} /></div>
           {project.facebook_page_id && project.meta_access_token ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: 'var(--success-bg)', border: '1px solid var(--success-border)', borderRadius: 'var(--radius)' }}><CheckCircle2 size={14} color="var(--success)" /><span style={{ fontSize: 12, color: 'var(--success)', fontWeight: 500 }}>Facebook pripravený</span></div>
           ) : (
@@ -515,7 +590,7 @@ export default function ProjectSettingsPage() {
           {inviteError && <div style={{ marginTop: 8, fontSize: 12, color: 'var(--error)', padding: '8px 12px', background: 'var(--error-bg)', border: '1px solid var(--error-border)', borderRadius: 'var(--radius-sm)' }}>{inviteError}</div>}
           {inviteSuccess && <div style={{ marginTop: 8, fontSize: 12, color: 'var(--success)', padding: '8px 12px', background: 'var(--success-bg)', border: '1px solid var(--success-border)', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', gap: 6 }}><CheckCircle2 size={12} /> Člen úspešne pridaný!</div>}
 
-          <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 10 }}>Používateľ musí mať existujúci RestaurantBoost účet (registrovaný emailom).</p>
+          <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 10 }}>Používateľ musí mať existujúci PROJECTBer účet (registrovaný emailom).</p>
         </div>
       )}
 

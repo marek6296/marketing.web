@@ -23,6 +23,13 @@ export async function POST(req: NextRequest) {
   const file = formData.get('image') as File
   const projectId = formData.get('projectId') as string
   const enhanceMode = formData.get('enhanceMode') as string || 'professional'
+  const outputFormat = formData.get('outputFormat') as string || 'post'
+  const referenceImageUrlsStr = formData.get('referenceImageUrls') as string | null
+  const aspectRatio = outputFormat === 'story' ? '9:16' : '1:1'
+  let referenceImageUrls: string[] = []
+  if (referenceImageUrlsStr) {
+    try { referenceImageUrls = JSON.parse(referenceImageUrlsStr) } catch { /* ignore */ }
+  }
 
   if (!file) return NextResponse.json({ error: 'Obrázok je povinný' }, { status: 400 })
 
@@ -74,19 +81,43 @@ export async function POST(req: NextRequest) {
 
 Brand style: ${brandPrompt}
 Color mood: ${mood}, incorporate subtle ${primaryColor} color accents where natural.
-Keep the same subject and composition but make it look dramatically more professional.
+Output format: ${outputFormat === 'story' ? 'vertical portrait 9:16 aspect ratio, optimized for Instagram/Facebook Story' : 'square 1:1 aspect ratio, optimized for social media post'}.
+Compose the image to fill this aspect ratio naturally.
+Keep the same subject but make it look dramatically more professional.
 Output a single enhanced image, no text.`
+
+    // Build parts: reference images (style) -> input image (content) -> text instruction
+    const parts: { inlineData?: { mimeType: string; data: string }, text?: string }[] = []
+
+    if (referenceImageUrls.length > 0) {
+      for (const url of referenceImageUrls) {
+        try {
+          const r = await fetch(url)
+          if (r.ok) {
+            const buf = await r.arrayBuffer()
+            parts.push({ inlineData: { data: Buffer.from(buf).toString('base64'), mimeType: r.headers.get('content-type') || 'image/jpeg' } })
+          }
+        } catch { /* ignore */ }
+      }
+    }
+
+    parts.push({ inlineData: { mimeType, data: base64 } })
+    
+    if (referenceImageUrls.length > 0) {
+      parts.push({ text: `Transformuj tento obrázok (posledný priložený) do vizuálneho štýlu referenčných obrázkov (prvé priložené), zatiaľ čo ho profesionálne vylepšíš. Zachovaj obsah/predmet z môjho obrázka, ale aplikuj štýl, farebnú paletu a osvetlenie z referenčných obrázkov.\n\n${prompt}` })
+    } else {
+      parts.push({ text: prompt })
+    }
 
     // Use Nano Banana 2 with reference image input
     const result = await ai.models.generateContent({
       model: 'gemini-3.1-flash-image-preview',
-      contents: [
-        { text: prompt },
-        { inlineData: { mimeType, data: base64 } },
-      ],
+      contents: [{ parts }],
       config: {
         responseModalities: ['Image'],
-      },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        aspectRatio,
+      } as any,
     })
 
     // Extract enhanced image from response

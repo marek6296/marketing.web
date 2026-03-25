@@ -18,7 +18,7 @@ export default async function ProjectLayout({
 
   const { data: project } = await supabase
     .from('projects')
-    .select('id, name, brand_colors')
+    .select('id, name, brand_colors, brand_logo_url')
     .eq('id', id)
     .single()
 
@@ -41,9 +41,13 @@ export default async function ProjectLayout({
           <div style={{
             width: 28, height: 28, borderRadius: 6,
             background: project.brand_colors?.primary || 'var(--brand)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden'
           }}>
-            <Sparkles size={13} color="white" />
+            {project.brand_logo_url ? (
+              <img src={project.brand_logo_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            ) : (
+              <Sparkles size={13} color="white" />
+            )}
           </div>
           <span style={{ fontWeight: 600, fontSize: 15, color: 'var(--text-primary)' }}>
             {project.name}

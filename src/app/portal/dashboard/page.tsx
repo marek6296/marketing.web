@@ -5,13 +5,32 @@ import {
   Sparkles, ArrowRight, Plus,
 } from 'lucide-react'
 
+// Custom SVGs since lucide-react doesn't have brand icons
+function FacebookIcon({ size = 14, color = 'currentColor' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill={color} xmlns="http://www.w3.org/2000/svg">
+      <path d="M24 12.07C24 5.4 18.63 0 12 0C5.37 0 0 5.4 0 12.07C0 18.1 4.39 23.1 10.13 24V15.56H7.08V12.07H10.13V9.4C10.13 6.38 11.93 4.7 14.65 4.7C15.96 4.7 17.34 4.93 17.34 4.93V7.9H15.83C14.34 7.9 13.88 8.83 13.88 9.78V12.07H17.2L16.66 15.56H13.88V24C19.61 23.1 24 18.1 24 12.07Z"/>
+    </svg>
+  )
+}
+
+function InstagramIcon({ size = 14, color = 'currentColor' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" xmlns="http://www.w3.org/2000/svg">
+      <rect x="2" y="2" width="20" height="20" rx="5" ry="5"/>
+      <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/>
+      <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/>
+    </svg>
+  )
+}
+
 export default async function DashboardPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
   const { data: projects } = await supabase
     .from('projects')
-    .select('id, name, brand_colors')
+    .select('id, name, brand_colors, brand_logo_url, facebook_page_id, instagram_account_id, meta_access_token')
     .eq('client_id', user!.id)
 
   const { data: posts } = await supabase
@@ -85,11 +104,19 @@ export default async function DashboardPage() {
             ) : (
               projects!.slice(0, 5).map((project) => (
                 <Link key={project.id} href={`/portal/projects/${project.id}`} className="table-row" style={{ textDecoration: 'none', padding: '12px 14px' }}>
-                  <div style={{ width: 32, height: 32, borderRadius: 8, flexShrink: 0, background: project.brand_colors?.primary || 'var(--brand)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Sparkles size={14} color="white" />
+                  <div style={{ width: 32, height: 32, borderRadius: 8, flexShrink: 0, background: project.brand_colors?.primary || 'var(--brand)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                    {project.brand_logo_url ? (
+                      <img src={project.brand_logo_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ) : (
+                      <Sparkles size={14} color="white" />
+                    )}
                   </div>
-                  <div style={{ flex: 1 }}>
+                  <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8 }}>
                     <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--text-primary)' }}>{project.name}</div>
+                    <div style={{ display: 'flex', gap: 6, marginLeft: 2 }}>
+                      <FacebookIcon size={14} color={project.facebook_page_id && project.meta_access_token ? '#1877F2' : '#9CA3AF'} />
+                      <InstagramIcon size={14} color={project.instagram_account_id && project.meta_access_token ? '#E4405F' : '#9CA3AF'} />
+                    </div>
                   </div>
                   <ArrowRight size={14} color="var(--text-faint)" />
                 </Link>

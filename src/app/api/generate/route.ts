@@ -139,8 +139,29 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await req.json()
-  const { topic, platform, projectId, mode = 'post', imageData, imageMime, postType = 'post' } = body
-  if (!topic && !imageData) return NextResponse.json({ error: 'Téma alebo obrázok je povinný' }, { status: 400 })
+  const { topic, platform, projectId, mode = 'post', imageData, imageMime, postType = 'post', referenceImageUrls } = body
+  if (!topic && !imageData && mode !== 'manual') return NextResponse.json({ error: 'Téma alebo obrázok je povinný' }, { status: 400 })
+
+  // --- TOKEN LIMIT CHECK ---
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role, plan, tokens_used, tokens_limit')
+    .eq('id', user.id)
+    .single()
+
+  if (!profile) return NextResponse.json({ error: 'Profil sa nenašiel' }, { status: 401 })
+
+  const isUnlimited = profile.role === 'superadmin' || profile.role === 'admin'
+  const isManual = mode === 'manual'
+
+  if (!isUnlimited && !isManual) {
+    if (profile.plan === 'free') {
+      return NextResponse.json({ error: 'FREE_PLAN_LIMIT', message: 'Pre využívanie AI funkcií si prosím aktivujte plán PRO.' }, { status: 403 })
+    }
+    if (profile.tokens_used >= profile.tokens_limit) {
+      return NextResponse.json({ error: 'TOKEN_LIMIT_REACHED', message: 'Vyčerpali ste svoje mesačné AI tokeny.' }, { status: 402 })
+    }
+  }
 
   // Load project brand settings
   let projectName = 'Projekt'
@@ -190,7 +211,9 @@ export async function POST(req: NextRequest) {
   let imageUrl: string | null = null
   let caption = ''
 
-  if (!apiKey || apiKey === 'your_gemini_api_key_here') {
+  if (isManual) {
+    caption = topic || ''
+  } else if (!apiKey || apiKey === 'your_gemini_api_key_here') {
     caption = mode === 'image-only' ? '' : generateDemoCaption(projectName, topic || 'príspevok', platform)
   } else {
     try {
@@ -232,8 +255,9 @@ Dôležité: Použij správny tón pre tento typ podniku. Formát: Len text prí
       }
 
       // 2. Generate image
-      try {
-        const isStory = postType === 'story'
+      if (!isManual) {
+        try {
+          const isStory = postType === 'story'
         const baseImagePrompt = isStory
           ? buildStoryPrompt(projectName, topic, brandPrompt, brandColors, imageStyle, projectType)
           : buildImagePrompt(projectName, topic, brandPrompt, brandColors, imageStyle, projectType)
@@ -282,10 +306,11 @@ Dôležité: Použij správny tón pre tento typ podniku. Formát: Len text prí
       } catch (imgErr) {
         console.error('Image generation error:', imgErr)
       }
-    } catch (err) {
-      console.error('Generation error:', err)
-      caption = mode === 'image-only' ? '' : generateDemoCaption(projectName, topic, platform)
     }
+  } catch (err) {
+    console.error('Generation error:', err)
+    caption = mode === 'image-only' ? '' : generateDemoCaption(projectName, topic, platform)
+  }
   }
 
   // For image-only mode, return without saving to posts
@@ -320,6 +345,14 @@ Dôležité: Použij správny tón pre tento typ podniku. Formát: Len text prí
       source: 'generated',
       title: topic ? topic.substring(0, 80) : null,
     }).select().maybeSingle() // ignore duplicate/errors silently
+  }
+
+  // --- DEDUCT TOKEN ---
+  if (!isUnlimited && !isManual && apiKey && apiKey !== 'your_gemini_api_key_here') {
+    await supabase
+      .from('profiles')
+      .update({ tokens_used: (profile.tokens_used || 0) + 1 })
+      .eq('id', user.id)
   }
 
   return NextResponse.json({ post })

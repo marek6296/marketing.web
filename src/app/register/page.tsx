@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { signup } from '@/app/actions/auth'
-import { Sparkles, UserPlus } from 'lucide-react'
+import { UserPlus, ArrowRight } from 'lucide-react'
 
 export default function RegisterPage() {
   const [error, setError] = useState<string | null>(null)
@@ -22,54 +22,97 @@ export default function RegisterPage() {
   }
 
   return (
-    <div style={{
-      minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
-      background: 'var(--bg-body)', padding: 24,
-    }}>
-      <div style={{ width: '100%', maxWidth: 400 }}>
-        <div style={{ textAlign: 'center', marginBottom: 32 }}>
-          <Link href="/" style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 10 }}>
-            <div style={{
-              width: 36, height: 36, borderRadius: 10,
-              background: 'linear-gradient(135deg, #F59E0B, #D97706)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              boxShadow: '0 2px 10px rgba(245, 158, 11, 0.25)',
+    <div style={{ minHeight: '100vh', display: 'flex' }}>
+      {/* Left panel — dark branded */}
+      <div style={{
+        width: '44%', minHeight: '100vh', background: '#1B1D2A',
+        display: 'flex', flexDirection: 'column', justifyContent: 'center',
+        padding: '60px 48px', position: 'relative', overflow: 'hidden',
+      }}>
+        {/* Subtle glow */}
+        <div style={{
+          position: 'absolute', width: 400, height: 400, top: -100, right: -100,
+          background: 'radial-gradient(circle, rgba(139,92,246,0.1) 0%, transparent 70%)',
+          borderRadius: '50%', filter: 'blur(60px)', pointerEvents: 'none',
+        }} />
+
+        <div style={{ position: 'relative', zIndex: 1 }}>
+          <Link href="/" style={{ textDecoration: 'none' }}>
+            <span style={{
+              fontFamily: "'Montserrat', sans-serif", fontWeight: 900, fontSize: 28,
+              color: '#FFF', letterSpacing: '-0.04em',
             }}>
-              <Sparkles size={18} color="#FFF" strokeWidth={2.5} />
-            </div>
-            <span style={{ fontWeight: 700, fontSize: 20, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
-              RestaurantBoost
+              PROJECTBer
             </span>
           </Link>
-          <p style={{ color: 'var(--text-secondary)', marginTop: 8, fontSize: 14 }}>
-            Vytvorte si účet. Reštaurácie pridáte po prihlásení.
-          </p>
-        </div>
 
-        <div className="card" style={{ padding: 32 }}>
-          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <div>
-              <label className="input-label" htmlFor="email">Email</label>
-              <input id="email" name="email" type="email" className="input-field" placeholder="vas@email.sk" required autoComplete="email" />
-            </div>
-            <div>
-              <label className="input-label" htmlFor="password">Heslo</label>
-              <input id="password" name="password" type="password" className="input-field" placeholder="Minimálne 8 znakov" required minLength={8} autoComplete="new-password" />
-            </div>
-            {error && (
-              <div style={{ padding: '10px 14px', background: 'var(--error-bg)', border: '1px solid var(--error-border)', borderRadius: 'var(--radius)', color: 'var(--error)', fontSize: 13 }}>
-                {error}
-              </div>
-            )}
-            <button type="submit" className="btn-primary" disabled={loading} style={{ width: '100%', padding: '11px', opacity: loading ? 0.6 : 1 }}>
-              <UserPlus size={14} /> {loading ? 'Registrujem...' : 'Vytvoriť účet'}
-            </button>
-          </form>
-          <div className="divider" />
-          <p style={{ textAlign: 'center', color: 'var(--text-secondary)', fontSize: 13 }}>
-            Už máte účet?{' '}
-            <Link href="/login" style={{ color: 'var(--brand)', fontWeight: 600, textDecoration: 'none' }}>Prihláste sa</Link>
+          <h2 style={{
+            fontSize: 28, fontWeight: 800, color: '#FFFFFF', marginTop: 40, lineHeight: 1.2,
+            letterSpacing: '-0.02em',
+          }}>
+            Začnite<br />generovať obsah.
+          </h2>
+          <p style={{
+            color: 'rgba(255,255,255,0.5)', fontSize: 15, marginTop: 12, lineHeight: 1.7,
+            maxWidth: 340,
+          }}>
+            Vytvorte si bezplatný účet a spravujte sociálne siete na autopilote s AI.
           </p>
+
+          <div style={{ marginTop: 48, display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {[
+              '✓ Registrácia zadarmo, bez kreditnej karty',
+              '✓ Neobmedzený počet projektov',
+              '✓ Publikovanie na FB & IG',
+            ].map((item, i) => (
+              <span key={i} style={{ color: 'rgba(255,255,255,0.55)', fontSize: 13 }}>{item}</span>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Right panel — form */}
+      <div style={{
+        flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: 'var(--bg-body)', padding: 24,
+      }}>
+        <div style={{ width: '100%', maxWidth: 380 }}>
+          <div style={{ marginBottom: 32 }}>
+            <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 6, letterSpacing: '-0.01em' }}>
+              Vytvoriť účet
+            </h1>
+            <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>
+              Projekty pridáte po prihlásení.
+            </p>
+          </div>
+
+          <div className="card" style={{ padding: 28 }}>
+            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div>
+                <label className="input-label" htmlFor="email">Email</label>
+                <input id="email" name="email" type="email" className="input-field" placeholder="vas@email.sk" required autoComplete="email" />
+              </div>
+              <div>
+                <label className="input-label" htmlFor="password">Heslo</label>
+                <input id="password" name="password" type="password" className="input-field" placeholder="Minimálne 8 znakov" required minLength={8} autoComplete="new-password" />
+              </div>
+              {error && (
+                <div style={{ padding: '10px 14px', background: 'var(--error-bg)', border: '1px solid var(--error-border)', borderRadius: 'var(--radius)', color: 'var(--error)', fontSize: 13 }}>
+                  {error}
+                </div>
+              )}
+              <button type="submit" className="btn-primary" disabled={loading} style={{ width: '100%', padding: '12px', opacity: loading ? 0.6 : 1, fontSize: 14, borderRadius: 10 }}>
+                <UserPlus size={15} /> {loading ? 'Registrujem...' : 'Vytvoriť účet'}
+              </button>
+            </form>
+            <div className="divider" />
+            <p style={{ textAlign: 'center', color: 'var(--text-secondary)', fontSize: 13 }}>
+              Už máte účet?{' '}
+              <Link href="/login" style={{ color: 'var(--brand)', fontWeight: 600, textDecoration: 'none' }}>
+                Prihláste sa <ArrowRight size={12} style={{ display: 'inline', verticalAlign: 'middle' }} />
+              </Link>
+            </p>
+          </div>
         </div>
       </div>
     </div>

@@ -107,12 +107,18 @@ function PostDrawer({ post, projectId, onClose, onUpdate, onDelete, hasMetaToken
   const [saving, setSaving] = useState(false)
   const [publishing, setPublishing] = useState(false)
   const [publishError, setPublishError] = useState<string | null>(null)
-  const [publishPlatform, setPublishPlatform] = useState<'facebook' | 'instagram' | 'both' | 'facebook_story' | 'instagram_story' | 'both_stories'>('both')
+  const [publishPlatform, setPublishPlatform] = useState<'facebook' | 'instagram' | 'both' | 'facebook_story' | 'instagram_story' | 'both_stories'>((post.platform as any) || 'both')
   const [deleting, setDeleting] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [deleteWarning, setDeleteWarning] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const [uploadingImg, setUploadingImg] = useState(false)
+  const [scheduledAt, setScheduledAt] = useState(
+    post.scheduled_at 
+      ? new Date(new Date(post.scheduled_at).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) 
+      : ''
+  )
+  const [scheduling, setScheduling] = useState(false)
   const [generatingImg, setGeneratingImg] = useState(false)
   const [showLibrary, setShowLibrary] = useState(false)
   const [hovering, setHovering] = useState(false)
@@ -137,6 +143,22 @@ function PostDrawer({ post, projectId, onClose, onUpdate, onDelete, hasMetaToken
     setSaving(true)
     if (await patchPost({ caption: editCaption })) { onUpdate({ ...post, caption: editCaption }); setEditing(false) }
     setSaving(false)
+  }
+
+  async function handleSchedule() {
+    if (!scheduledAt) return
+    setScheduling(true)
+    const isoDate = new Date(scheduledAt).toISOString()
+    const updated = await patchPost({ status: 'scheduled', scheduled_at: isoDate, platform: publishPlatform, post_type: post.post_type })
+    if (updated) onUpdate({ ...post, status: 'scheduled', scheduled_at: isoDate, platform: publishPlatform as string, post_type: post.post_type })
+    setScheduling(false)
+  }
+
+  async function handleUnschedule() {
+    setScheduling(true)
+    const updated = await patchPost({ status: 'draft', scheduled_at: null })
+    if (updated) onUpdate({ ...post, status: 'draft', scheduled_at: null, platform: publishPlatform as string, post_type: post.post_type })
+    setScheduling(false)
   }
 
   async function handleManualPublish() {
@@ -449,7 +471,7 @@ function PostDrawer({ post, projectId, onClose, onUpdate, onDelete, hasMetaToken
 
         {/* ── Actions ── */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingTop: 8, borderTop: '1px solid var(--border)' }}>
-          {(post.status === 'draft' || post.status === 'failed') && (
+          {(post.status === 'draft' || post.status === 'failed' || post.status === 'scheduled') && (
             <>
               {post.status === 'failed' && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 12px', background: 'var(--error-bg)', border: '1px solid var(--error-border)', borderRadius: 'var(--radius)' }}>
@@ -531,6 +553,40 @@ function PostDrawer({ post, projectId, onClose, onUpdate, onDelete, hasMetaToken
                   </button>
                 </>
               )}
+              
+              {/* ── Schedule section ── */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '12px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', marginTop: 4 }}>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                  🕒 {post.status === 'scheduled' ? 'Naplánovaný čas' : 'Naplánovať na neskôr'}
+                </div>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <input 
+                    type="datetime-local" 
+                    className="input-field" 
+                    value={scheduledAt} 
+                    onChange={e => setScheduledAt(e.target.value)} 
+                    style={{ flex: 1, fontSize: 13, padding: '8px' }} 
+                  />
+                  <button 
+                    className="btn-secondary" 
+                    onClick={handleSchedule} 
+                    disabled={scheduling || !scheduledAt} 
+                    style={{ padding: '8px 14px' }}
+                  >
+                    {scheduling ? <Loader2 size={14} style={{ animation: 'spin-slow 1s linear infinite' }} /> : (post.status === 'scheduled' ? 'Uložiť zmenu' : 'Naplánovať')}
+                  </button>
+                </div>
+                {post.status === 'scheduled' && (
+                  <button 
+                    className="btn-ghost" 
+                    onClick={handleUnschedule} 
+                    disabled={scheduling} 
+                    style={{ fontSize: 12, padding: '6px', color: 'var(--error)', marginTop: 2, justifyContent: 'center' }}
+                  >
+                    Zrušiť plánovanie a vrátiť do konceptov
+                  </button>
+                )}
+              </div>
             </>
           )}
           {post.status === 'published' && (
@@ -613,6 +669,8 @@ export default function ProjectPostsPage() {
   const [filter, setFilter] = useState<'all' | 'draft' | 'published' | 'scheduled'>('all')
   const [selected, setSelected] = useState<Post | null>(null)
   const [hasMetaToken, setHasMetaToken] = useState(false)
+  const [selectedPosts, setSelectedPosts] = useState<Set<string>>(new Set())
+  const [isDeletingBulk, setIsDeletingBulk] = useState(false)
 
   // Read ?filter= from URL on mount
   useEffect(() => {
@@ -633,7 +691,22 @@ export default function ProjectPostsPage() {
     setLoading(true)
     const res = await fetch(`/api/posts?projectId=${projectId}`)
     const data = await res.json()
-    setPosts(data.posts || [])
+    const loadedPosts = data.posts || []
+    setPosts(loadedPosts)
+    
+    // Auto-open post if ?edit=ID is in URL
+    const params = new URLSearchParams(window.location.search)
+    const editId = params.get('edit')
+    if (editId) {
+      const p = loadedPosts.find((post: Post) => post.id === editId)
+      if (p) setSelected(p)
+      
+      // Clean up URL without reloading
+      const url = new URL(window.location.href)
+      url.searchParams.delete('edit')
+      window.history.replaceState({}, '', url.toString())
+    }
+    
     setLoading(false)
   }, [projectId])
 
@@ -647,6 +720,24 @@ export default function ProjectPostsPage() {
   function handleDelete(id: string) {
     setPosts(prev => prev.filter(p => p.id !== id))
     setSelected(null)
+    setSelectedPosts(prev => {
+      const next = new Set(prev)
+      next.delete(id)
+      return next
+    })
+  }
+
+  async function handleBulkDelete() {
+    if (!confirm(`Naozaj chcete vymazať ${selectedPosts.size} príspevkov? (Vymažú sa len z nášho portálu, zo sociálnych sietí ich treba mazať ručne)`)) return
+    setIsDeletingBulk(true)
+    for (const id of selectedPosts) {
+      await fetch(`/api/posts?id=${id}`, {
+        method: 'DELETE',
+      }).catch(() => {})
+    }
+    setPosts(prev => prev.filter(p => !selectedPosts.has(p.id)))
+    setSelectedPosts(new Set())
+    setIsDeletingBulk(false)
   }
 
   const filtered = posts.filter(p => filter === 'all' || p.status === filter)
@@ -687,7 +778,8 @@ export default function ProjectPostsPage() {
       </div>
 
       {/* Filter tabs */}
-      <div style={{ display: 'flex', gap: 6, marginBottom: 20, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', flex: 1 }}>
         {([['all', 'Všetky', stats.all], ['draft', 'Koncepty', stats.draft], ['published', 'Publikované', stats.published], ['scheduled', 'Naplánované', stats.scheduled]] as const).map(([id, label, count]) => (
           <button key={id} onClick={() => setFilter(id)} style={{
             padding: '8px 14px', borderRadius: 'var(--radius)', cursor: 'pointer', fontFamily: 'Inter',
@@ -703,6 +795,35 @@ export default function ProjectPostsPage() {
             </span>
           </button>
         ))}
+        </div>
+        
+        {/* Bulk Actions Header */}
+        {filtered.length > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginLeft: 16 }}>
+            {selectedPosts.size > 0 && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--brand-bg)', padding: '6px 12px', borderRadius: 'var(--radius)', border: '1px solid var(--brand-border)' }}>
+                <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--brand-dark)' }}>Označené: {selectedPosts.size}</span>
+                <button onClick={handleBulkDelete} disabled={isDeletingBulk} className="btn-danger" style={{ fontSize: 12, padding: '4px 10px', height: 'auto', minHeight: 28 }}>
+                  {isDeletingBulk ? <Loader2 size={13} style={{ animation: 'spin-slow 1s linear infinite' }} /> : <Trash2 size={13} />} Výmazať
+                </button>
+              </div>
+            )}
+            <button 
+              onClick={() => {
+                if (selectedPosts.size === filtered.length) {
+                  setSelectedPosts(new Set())
+                } else {
+                  setSelectedPosts(new Set(filtered.map(p => p.id)))
+                }
+              }} 
+              className="btn-ghost" 
+              style={{ fontSize: 13, padding: '6px 12px' }}
+            >
+              <CheckCircle2 size={14} />
+              {selectedPosts.size === filtered.length ? 'Zrušiť výber' : 'Označiť všetky'}
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Posts list */}
@@ -739,6 +860,18 @@ export default function ProjectPostsPage() {
                 onMouseEnter={e => { if (selected?.id !== post.id) e.currentTarget.style.borderColor = 'var(--brand-border)' }}
                 onMouseLeave={e => { if (selected?.id !== post.id) e.currentTarget.style.borderColor = 'var(--border)' }}
               >
+                <div 
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    const next = new Set(selectedPosts)
+                    if (next.has(post.id)) next.delete(post.id)
+                    else next.add(post.id)
+                    setSelectedPosts(next)
+                  }}
+                  style={{ display: 'flex', alignItems: 'center', padding: '10px 10px 10px 0', cursor: 'pointer' }}
+                >
+                  <input type="checkbox" checked={selectedPosts.has(post.id)} readOnly style={{ width: 16, height: 16, cursor: 'pointer', accentColor: 'var(--brand)' }} />
+                </div>
                 <div style={{ width: 52, height: 52, borderRadius: 'var(--radius)', flexShrink: 0, overflow: 'hidden', background: 'var(--bg-hover)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   {post.image_url ? <img src={post.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <ImageIcon size={18} color="var(--text-faint)" />}
                 </div>

@@ -34,6 +34,7 @@ export async function updateProject(projectId: string, formData: FormData) {
     name: formData.get('name') as string,
     description: formData.get('description') as string || null,
     brand_style_prompt: formData.get('brand_style_prompt') as string || null,
+    brand_logo_url: formData.get('brand_logo_url') as string || null,
     project_type: formData.get('project_type') as string || 'restaurant',
     brand_colors: {
       primary: formData.get('primary_color') as string || '#F59E0B',
@@ -50,6 +51,7 @@ export async function updateProject(projectId: string, formData: FormData) {
     facebook_page_id: formData.get('facebook_page_id') as string || null,
     instagram_account_id: formData.get('instagram_account_id') as string || null,
     meta_access_token: formData.get('meta_access_token') as string || null,
+    disable_emojis: formData.get('disable_emojis') === 'on',
   }).eq('id', projectId).eq('client_id', user.id)
 
   if (error) return { error: error.message }
