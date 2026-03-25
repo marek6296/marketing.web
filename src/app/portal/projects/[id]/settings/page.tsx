@@ -599,6 +599,37 @@ export default function ProjectSettingsPage() {
           >
             {project?.meta_access_token ? 'Obnoviť' : 'Pripojiť'}
           </a>
+          {project?.meta_access_token && (
+            <button
+              onClick={async () => {
+                if (!confirm('Odpojíš Facebook a Instagram. Pokračovať?')) return
+                const fd = new FormData()
+                fd.append('id', id as string)
+                fd.append('meta_access_token', '')
+                fd.append('facebook_page_id', '')
+                fd.append('instagram_account_id', '')
+                // reuse existing updateProject action via fetch
+                await fetch('/api/project', {
+                  method: 'PATCH',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ id, meta_access_token: null, facebook_page_id: null, instagram_account_id: null }),
+                })
+                setProject(p => p ? { ...p, meta_access_token: null, facebook_page_id: null, instagram_account_id: null } : p)
+              }}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 4,
+                background: 'transparent', color: 'var(--text-muted)',
+                border: '1px solid var(--border)',
+                padding: '7px 12px', borderRadius: 'var(--radius)',
+                fontSize: 12, fontWeight: 500, cursor: 'pointer',
+                flexShrink: 0, transition: 'all 150ms',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.color = 'var(--error)'; e.currentTarget.style.borderColor = 'var(--error)' }}
+              onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.borderColor = 'var(--border)' }}
+            >
+              Odpojiť
+            </button>
+          )}
         </div>
 
         {/* Separator */}
