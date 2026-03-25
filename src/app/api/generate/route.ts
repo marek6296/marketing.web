@@ -107,6 +107,21 @@ REQUIREMENTS:
 - Magazine-quality composition and styling`
 }
 
+function buildStoryPrompt(
+  projectName: string,
+  topic: string,
+  brandPrompt: string,
+  brandColors: { primary?: string; secondary?: string } | null,
+  imageStyle: Record<string, string> | null,
+  projectType?: string,
+): string {
+  const base = buildImagePrompt(projectName, topic, brandPrompt, brandColors, imageStyle, projectType)
+  return base.replace(
+    'Square 1:1 format optimized for Instagram/Facebook',
+    'Vertical 9:16 portrait format optimized for Instagram/Facebook Stories and Reels — tall and dramatic'
+  )
+}
+
 export async function POST(req: NextRequest) {
   const cookieStore = await cookies()
   const supabase = createServerClient(
@@ -124,7 +139,7 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await req.json()
-  const { topic, platform, projectId, mode = 'post', imageData, imageMime } = body
+  const { topic, platform, projectId, mode = 'post', imageData, imageMime, postType = 'post' } = body
   if (!topic && !imageData) return NextResponse.json({ error: 'Téma alebo obrázok je povinný' }, { status: 400 })
 
   // Load project brand settings
@@ -218,7 +233,10 @@ Dôležité: Použij správny tón pre tento typ podniku. Formát: Len text prí
 
       // 2. Generate image
       try {
-        const baseImagePrompt = buildImagePrompt(projectName, topic, brandPrompt, brandColors, imageStyle, projectType)
+        const isStory = postType === 'story'
+        const baseImagePrompt = isStory
+          ? buildStoryPrompt(projectName, topic, brandPrompt, brandColors, imageStyle, projectType)
+          : buildImagePrompt(projectName, topic, brandPrompt, brandColors, imageStyle, projectType)
 
         // Build contents: if reference image exists, prepend it as style guide
         const imageContents = referenceImageData
@@ -286,11 +304,24 @@ Dôležité: Použij správny tón pre tento typ podniku. Formát: Len text prí
       platform,
       topic,
       status: 'draft',
+      post_type: postType,
     })
     .select()
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // ─── Auto-save generated image to library ───────────────────────────────────
+  if (imageUrl && projectId) {
+    await supabase.from('image_library').insert({
+      client_id: user.id,
+      project_id: projectId,
+      image_url: imageUrl,
+      source: 'generated',
+      title: topic ? topic.substring(0, 80) : null,
+    }).select().maybeSingle() // ignore duplicate/errors silently
+  }
+
   return NextResponse.json({ post })
 }
 

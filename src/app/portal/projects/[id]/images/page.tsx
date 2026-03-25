@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useParams } from 'next/navigation'
-import { ImageIcon, Trash2, Download, Loader2, Wand2, Sparkles, Search, Library } from 'lucide-react'
+import { ImageIcon, Trash2, Download, Loader2, Wand2, Sparkles, Search, Library, PenLine } from 'lucide-react'
+import ImageEditor from './ImageEditor'
 
 type LibraryImage = {
   id: string
@@ -20,6 +21,7 @@ export default function ProjectImagesPage() {
   const [search, setSearch] = useState('')
   const [deleting, setDeleting] = useState<string | null>(null)
   const [selected, setSelected] = useState<LibraryImage | null>(null)
+  const [editing, setEditing] = useState<LibraryImage | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -51,8 +53,22 @@ export default function ProjectImagesPage() {
     enhanced: images.filter(i => i.source === 'enhanced').length,
   }
 
+  function handleSaved(newUrl: string) {
+    setEditing(null)
+    // Add newly saved image to list
+    load()
+  }
+
   return (
     <div>
+      {editing && (
+        <ImageEditor
+          imageUrl={editing.image_url}
+          projectId={projectId}
+          onClose={() => setEditing(null)}
+          onSaved={handleSaved}
+        />
+      )}
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
         <div>
@@ -138,13 +154,22 @@ export default function ProjectImagesPage() {
                       {img.source === 'enhanced' ? <Wand2 size={11} color="var(--brand)" /> : <Sparkles size={11} color="var(--brand)" />}
                       <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>{img.source === 'enhanced' ? 'Enhanced' : 'Generated'}</span>
                     </div>
-                    <button
-                      onClick={e => { e.stopPropagation(); handleDelete(img.id) }}
-                      disabled={deleting === img.id}
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-faint)', padding: 2 }}
-                    >
-                      {deleting === img.id ? <Loader2 size={11} style={{ animation: 'spin-slow 0.8s linear infinite' }} /> : <Trash2 size={11} />}
-                    </button>
+                    <div style={{ display: 'flex', gap: 2 }}>
+                      <button
+                        onClick={e => { e.stopPropagation(); setEditing(img) }}
+                        title="Upraviť"
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--brand)', padding: 2 }}
+                      >
+                        <PenLine size={11} />
+                      </button>
+                      <button
+                        onClick={e => { e.stopPropagation(); handleDelete(img.id) }}
+                        disabled={deleting === img.id}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-faint)', padding: 2 }}
+                      >
+                        {deleting === img.id ? <Loader2 size={11} style={{ animation: 'spin-slow 0.8s linear infinite' }} /> : <Trash2 size={11} />}
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -168,6 +193,13 @@ export default function ProjectImagesPage() {
               </p>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <button
+                className="btn-brand"
+                onClick={() => setEditing(selected)}
+                style={{ justifyContent: 'center' }}
+              >
+                <PenLine size={14} /> Upraviť / Editovať
+              </button>
               <a
                 href={selected.image_url}
                 download

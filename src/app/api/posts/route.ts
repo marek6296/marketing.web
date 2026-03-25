@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
 
   let query = supabase
     .from('posts')
-    .select('id, caption, image_url, platform, topic, status, created_at, scheduled_at, fb_post_id, ig_post_id')
+    .select('id, caption, image_url, platform, post_type, topic, status, created_at, scheduled_at, fb_post_id, ig_post_id')
     .order('created_at', { ascending: false })
 
   if (projectId) query = query.eq('project_id', projectId)
@@ -38,7 +38,7 @@ export async function PATCH(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await req.json()
-  const { id, caption, status, scheduled_at, image_url } = body
+  const { id, caption, status, scheduled_at, image_url, post_type, link_sticker_url } = body
   if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 })
 
   const updates: Record<string, unknown> = {}
@@ -46,15 +46,38 @@ export async function PATCH(req: NextRequest) {
   if (status !== undefined) updates.status = status
   if (scheduled_at !== undefined) updates.scheduled_at = scheduled_at
   if (image_url !== undefined) updates.image_url = image_url
+  if (post_type !== undefined) updates.post_type = post_type
+  if (link_sticker_url !== undefined) updates.link_sticker_url = link_sticker_url
 
   const { data, error } = await supabase
     .from('posts')
     .update(updates)
     .eq('id', id)
-    .select()
+    .select('id, caption, image_url, platform, topic, status, created_at, scheduled_at, fb_post_id, ig_post_id, project_id')
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // ─── Auto-save image to library ──────────────────────────────────────────
+  if (image_url && data?.project_id) {
+    // Only insert if this URL isn't already in the library for this project
+    const { count } = await supabase
+      .from('image_library')
+      .select('id', { count: 'exact', head: true })
+      .eq('project_id', data.project_id)
+      .eq('image_url', image_url)
+
+    if (count === 0) {
+      await supabase.from('image_library').insert({
+        client_id: user.id,
+        project_id: data.project_id,
+        image_url,
+        source: 'generated',
+        title: null,
+      })
+    }
+  }
+
   return NextResponse.json({ post: data })
 }
 

@@ -14,6 +14,7 @@ type Post = {
   caption: string | null
   image_url: string | null
   platform: string
+  post_type: string
   topic: string | null
   status: string
   created_at: string
@@ -106,7 +107,7 @@ function PostDrawer({ post, projectId, onClose, onUpdate, onDelete, hasMetaToken
   const [saving, setSaving] = useState(false)
   const [publishing, setPublishing] = useState(false)
   const [publishError, setPublishError] = useState<string | null>(null)
-  const [publishPlatform, setPublishPlatform] = useState<'facebook' | 'instagram' | 'both'>('both')
+  const [publishPlatform, setPublishPlatform] = useState<'facebook' | 'instagram' | 'both' | 'facebook_story' | 'instagram_story' | 'both_stories'>('both')
   const [deleting, setDeleting] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [deleteWarning, setDeleteWarning] = useState<string | null>(null)
@@ -148,8 +149,10 @@ function PostDrawer({ post, projectId, onClose, onUpdate, onDelete, hasMetaToken
     setPublishing(true)
     setPublishError(null)
     try {
-      // First update the post's platform
-      await patchPost({ platform: publishPlatform })
+      const isStoryPlatform = publishPlatform.includes('story') || publishPlatform === 'both_stories'
+      const postType = isStoryPlatform ? 'story' : 'post'
+      // Update platform + post_type before publishing
+      await patchPost({ platform: publishPlatform, post_type: postType })
       const res = await fetch('/api/publish', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -159,7 +162,7 @@ function PostDrawer({ post, projectId, onClose, onUpdate, onDelete, hasMetaToken
       if (!res.ok) {
         setPublishError(data.error || 'Chyba pri publikovaní')
       } else {
-        onUpdate({ ...post, status: 'published', platform: publishPlatform })
+        onUpdate({ ...post, status: 'published', platform: publishPlatform, post_type: postType })
       }
     } catch {
       setPublishError('Sieťová chyba – skúste znova')
@@ -456,24 +459,42 @@ function PostDrawer({ post, projectId, onClose, onUpdate, onDelete, hasMetaToken
               )}
               {hasMetaToken ? (
                 <>
-                  {/* Platform selector */}
-                  <div style={{ display: 'flex', gap: 6 }}>
-                    {(['facebook', 'instagram', 'both'] as const).map(p => (
-                      <button
-                        key={p}
-                        onClick={() => setPublishPlatform(p)}
-                        style={{
-                          flex: 1, padding: '8px 4px', borderRadius: 'var(--radius)', cursor: 'pointer',
+                  {/* Platform + Story selector */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>📢 Príspevky</div>
+                    <div style={{ display: 'flex', gap: 4 }}>
+                      {(['facebook', 'instagram', 'both'] as const).map(p => (
+                        <button key={p} onClick={() => setPublishPlatform(p)} style={{
+                          flex: 1, padding: '7px 4px', borderRadius: 'var(--radius)', cursor: 'pointer',
                           border: `1px solid ${publishPlatform === p ? 'var(--brand)' : 'var(--border)'}`,
                           background: publishPlatform === p ? 'var(--brand-bg)' : 'var(--bg-base)',
                           color: publishPlatform === p ? 'var(--brand-dark)' : 'var(--text-muted)',
                           fontSize: 11, fontWeight: 600, fontFamily: 'Inter',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
-                        }}
-                      >
-                        {p === 'facebook' ? '📘 Facebook' : p === 'instagram' ? '📸 Instagram' : '✨ Obe'}
-                      </button>
-                    ))}
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3,
+                        }}>
+                          {p === 'facebook' ? '📘 FB' : p === 'instagram' ? '📸 IG' : '✨ Obe'}
+                        </button>
+                      ))}
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginTop: 4 }}>📱 Stories</div>
+                    <div style={{ display: 'flex', gap: 4 }}>
+                      {([
+                        { val: 'facebook_story', label: '📘 FB Story' },
+                        { val: 'instagram_story', label: '📸 IG Story' },
+                        { val: 'both_stories', label: '✨ Obe Stories' },
+                      ] as const).map(p => (
+                        <button key={p.val} onClick={() => setPublishPlatform(p.val)} style={{
+                          flex: 1, padding: '7px 4px', borderRadius: 'var(--radius)', cursor: 'pointer',
+                          border: `1px solid ${publishPlatform === p.val ? 'var(--brand)' : 'var(--border)'}`,
+                          background: publishPlatform === p.val ? 'var(--brand-bg)' : 'var(--bg-base)',
+                          color: publishPlatform === p.val ? 'var(--brand-dark)' : 'var(--text-muted)',
+                          fontSize: 10, fontWeight: 600, fontFamily: 'Inter',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3,
+                        }}>
+                          {p.label}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                   {publishError && (
                     <div style={{ display: 'flex', gap: 8, padding: '9px 12px', borderRadius: 'var(--radius)', background: 'var(--error-bg)', border: '1px solid var(--error-border)' }}>
@@ -484,7 +505,15 @@ function PostDrawer({ post, projectId, onClose, onUpdate, onDelete, hasMetaToken
                   <button className="btn-brand" onClick={handleMetaPublish} disabled={publishing} style={{ padding: '11px', opacity: publishing ? 0.6 : 1 }}>
                     {publishing
                       ? <><Loader2 size={14} style={{ animation: 'spin-slow 1s linear infinite' }} /> Publikujem...</>
-                      : <><Send size={14} /> {post.status === 'failed' ? 'Skúsiť znova' : `Publikovať na ${publishPlatform === 'both' ? 'Facebook & Instagram' : publishPlatform === 'facebook' ? 'Facebook' : 'Instagram'}`}</> }
+                      : <><Send size={14} /> {post.status === 'failed' ? 'Skúsiť znova' : (
+                          publishPlatform === 'both' ? 'Publikovať na Facebook & Instagram' :
+                          publishPlatform === 'facebook' ? 'Publikovať na Facebook' :
+                          publishPlatform === 'instagram' ? 'Publikovať na Instagram' :
+                          publishPlatform === 'both_stories' ? 'Publikovať ako Story (FB & IG)' :
+                          publishPlatform === 'facebook_story' ? 'Publikovať ako FB Story' :
+                          'Publikovať ako IG Story'
+                        )}
+                      </>}
                   </button>
                 </>
               ) : (
@@ -716,6 +745,11 @@ export default function ProjectPostsPage() {
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 600, color: sc.color, background: sc.bg, border: `1px solid ${sc.border}` }}>{sc.label}</span>
+                    {post.post_type === 'story' && (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '2px 7px', borderRadius: 20, fontSize: 10, fontWeight: 700, color: '#7c3aed', background: '#ede9fe', border: '1px solid #c4b5fd' }}>
+                        📱 Story
+                      </span>
+                    )}
                     <PlatformIcon size={11} color="var(--text-muted)" />
                     <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{new Date(post.created_at).toLocaleDateString('sk-SK', { day: 'numeric', month: 'short' })}</span>
                   </div>
