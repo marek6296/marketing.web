@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { updateProject, deleteProject } from '@/app/actions/projects'
 import {
@@ -107,6 +107,8 @@ export default function ProjectSettingsPage() {
   const [inviting, setInviting] = useState(false)
   const [inviteError, setInviteError] = useState<string | null>(null)
   const [inviteSuccess, setInviteSuccess] = useState(false)
+  const searchParams = useSearchParams()
+  const [oauthStatus, setOauthStatus] = useState<'success' | 'error' | 'no_pages' | null>(null)
 
   useEffect(() => {
     fetch(`/api/project?id=${id}`).then(r => r.json()).then(data => {
@@ -126,6 +128,23 @@ export default function ProjectSettingsPage() {
       setLoading(false)
     }).catch(() => setLoading(false))
   }, [id])
+
+  // Handle OAuth redirect result
+  useEffect(() => {
+    const status = searchParams.get('oauth')
+    if (status === 'success' || status === 'error' || status === 'no_pages') {
+      setOauthStatus(status as 'success' | 'error' | 'no_pages')
+      // Reload project data to show updated tokens
+      if (status === 'success') {
+        fetch(`/api/project?id=${id}`).then(r => r.json()).then(data => setProject(data.project))
+      }
+      // Clean URL
+      const url = new URL(window.location.href)
+      url.searchParams.delete('oauth')
+      window.history.replaceState({}, '', url.toString())
+      setTimeout(() => setOauthStatus(null), 6000)
+    }
+  }, [searchParams, id])
 
   // Check ownership + load members
   useEffect(() => {
@@ -515,6 +534,68 @@ export default function ProjectSettingsPage() {
       <div className="card" style={{ padding: 20 }}>
         <h2 style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Facebook & Instagram</h2>
         <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 14 }}>Pripojte sociálne siete pre postovanie.</p>
+
+        {/* OAuth Flash Banners */}
+        {oauthStatus === 'success' && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', marginBottom: 14, background: 'var(--success-bg)', border: '1px solid var(--success-border)', borderRadius: 'var(--radius)' }}>
+            <CheckCircle2 size={15} color="var(--success)" />
+            <span style={{ fontSize: 13, color: 'var(--success)', fontWeight: 500 }}>Facebook a Instagram úspešne prepojené! Token uložený automaticky.</span>
+          </div>
+        )}
+        {oauthStatus === 'no_pages' && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', marginBottom: 14, background: 'var(--warning-bg)', border: '1px solid var(--warning-border)', borderRadius: 'var(--radius)' }}>
+            <AlertTriangle size={15} color="var(--warning)" />
+            <span style={{ fontSize: 13, color: 'var(--warning)' }}>Žiadna Facebook stránka nebola nájdená. Uisti sa, že spravuješ aspoň jednu stránku.</span>
+          </div>
+        )}
+        {oauthStatus === 'error' && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', marginBottom: 14, background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 'var(--radius)' }}>
+            <AlertTriangle size={15} color="#dc2626" />
+            <span style={{ fontSize: 13, color: '#dc2626' }}>OAuth prepojenie zlyhalo. Skús znova alebo použi manuálne zadanie.</span>
+          </div>
+        )}
+
+        {/* One-click OAuth connect */}
+        <div style={{ padding: '14px 16px', marginBottom: 16, borderRadius: 'var(--radius-lg)', background: 'linear-gradient(to right, rgba(24,119,242,0.06), rgba(24,119,242,0.02))', border: '1px solid rgba(24,119,242,0.2)', display: 'flex', alignItems: 'center', gap: 14 }}>
+          <div style={{ width: 38, height: 38, borderRadius: 10, background: '#1877F2', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <svg width={19} height={19} viewBox="0 0 24 24" fill="white"><path d="M24 12.07C24 5.4 18.63 0 12 0C5.37 0 0 5.4 0 12.07C0 18.1 4.39 23.1 10.13 24V15.56H7.08V12.07H10.13V9.4C10.13 6.38 11.93 4.7 14.65 4.7C15.96 4.7 17.34 4.93 17.34 4.93V7.9H15.83C14.34 7.9 13.88 8.83 13.88 9.78V12.07H17.2L16.66 15.56H13.88V24C19.61 23.1 24 18.1 24 12.07Z"/></svg>
+          </div>
+          <div style={{ flex: 1 }}>
+            {project?.meta_access_token ? (
+              <>
+                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 1 }}>Prepojené cez Facebook</div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Token je aktívny. Môžeš ho obnoviť opätovným prepojením.</div>
+              </>
+            ) : (
+              <>
+                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 1 }}>Rýchle prepojenie cez Facebook Login</div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Automaticky načítame Page ID, Instagram ID a Access Token.</div>
+              </>
+            )}
+          </div>
+          <a
+            href={`/api/meta/connect?projectId=${id}`}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              background: '#1877F2', color: 'white',
+              padding: '7px 14px', borderRadius: 'var(--radius)',
+              fontSize: 13, fontWeight: 600, textDecoration: 'none',
+              transition: 'opacity 150ms', flexShrink: 0,
+            }}
+            onMouseEnter={e => (e.currentTarget.style.opacity = '0.85')}
+            onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
+          >
+            {project?.meta_access_token ? 'Obnoviť' : 'Pripojiť'}
+          </a>
+        </div>
+
+        {/* Separator */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+          <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+          <span style={{ fontSize: 11, color: 'var(--text-faint)', whiteSpace: 'nowrap' }}>alebo zadaj manuálne</span>
+          <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+        </div>
+
         {/* Info banner for tokens */}
         <div style={{ padding: '16px 20px', marginBottom: 20, borderRadius: 'var(--radius-lg)', background: 'linear-gradient(to right, rgba(59,130,246,0.05), rgba(59,130,246,0.01))', border: '1px solid rgba(59,130,246,0.2)', display: 'flex', gap: 16, alignItems: 'flex-start' }}>
           <div style={{ width: 40, height: 40, borderRadius: 12, background: 'rgba(59,130,246,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
