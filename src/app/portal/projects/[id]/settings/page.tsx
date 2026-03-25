@@ -534,8 +534,8 @@ export default function ProjectSettingsPage() {
           <div><label className="input-label">Facebook Page ID</label><input name="facebook_page_id" className="input-field" defaultValue={project.facebook_page_id || ''} placeholder="123456789012345" /></div>
           <div><label className="input-label">Instagram Account ID</label><input name="instagram_account_id" className="input-field" defaultValue={project.instagram_account_id || ''} /></div>
           <div><label className="input-label">Page Access Token</label><textarea name="meta_access_token" className="input-field" rows={6} defaultValue={project.meta_access_token || ''} style={{ fontFamily: 'monospace', fontSize: 12, resize: 'vertical' }} /></div>
-          {project.facebook_page_id && project.meta_access_token ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: 'var(--success-bg)', border: '1px solid var(--success-border)', borderRadius: 'var(--radius)' }}><CheckCircle2 size={14} color="var(--success)" /><span style={{ fontSize: 12, color: 'var(--success)', fontWeight: 500 }}>Facebook pripravený</span></div>
+          {project.meta_access_token && (project.facebook_page_id || project.instagram_account_id) ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: 'var(--success-bg)', border: '1px solid var(--success-border)', borderRadius: 'var(--radius)' }}><CheckCircle2 size={14} color="var(--success)" /><span style={{ fontSize: 12, color: 'var(--success)', fontWeight: 500 }}>{project.facebook_page_id && project.instagram_account_id ? 'Facebook a Instagram sú pripravené' : project.facebook_page_id ? 'Facebook pripravený' : 'Instagram pripravený'}</span></div>
           ) : (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: 'var(--warning-bg)', border: '1px solid var(--warning-border)', borderRadius: 'var(--radius)' }}><AlertTriangle size={14} color="var(--warning)" /><span style={{ fontSize: 12, color: 'var(--warning)' }}>Vyplňte Page ID a Token</span></div>
           )}
