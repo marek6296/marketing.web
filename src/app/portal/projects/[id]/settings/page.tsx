@@ -133,14 +133,26 @@ export default function ProjectSettingsPage() {
   useEffect(() => {
     const status = searchParams.get('oauth')
     if (status === 'success' || status === 'error' || status === 'no_pages') {
-      setOauthStatus(status as 'success' | 'error' | 'no_pages')
-      // Reload project data to show updated tokens
       if (status === 'success') {
-        fetch(`/api/project?id=${id}`).then(r => r.json()).then(data => setProject(data.project))
+        // Full reload so defaultValue inputs pick up new DB values
+        const url = new URL(window.location.href)
+        url.searchParams.delete('oauth')
+        url.searchParams.set('connected', '1')
+        window.location.replace(url.toString())
+        return
       }
+      setOauthStatus(status as 'error' | 'no_pages')
       // Clean URL
       const url = new URL(window.location.href)
       url.searchParams.delete('oauth')
+      window.history.replaceState({}, '', url.toString())
+      setTimeout(() => setOauthStatus(null), 6000)
+    }
+    // Show success banner after reload
+    if (searchParams.get('connected') === '1') {
+      setOauthStatus('success')
+      const url = new URL(window.location.href)
+      url.searchParams.delete('connected')
       window.history.replaceState({}, '', url.toString())
       setTimeout(() => setOauthStatus(null), 6000)
     }
