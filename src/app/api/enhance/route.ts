@@ -23,9 +23,11 @@ export async function POST(req: NextRequest) {
   const file = formData.get('image') as File
   const projectId = formData.get('projectId') as string
   const enhanceMode = formData.get('enhanceMode') as string || 'professional'
-  const outputFormat = formData.get('outputFormat') as string || 'post'
+  const submittedAspectRatio = formData.get('aspectRatio') as string || '1:1'
   const referenceImageUrlsStr = formData.get('referenceImageUrls') as string | null
-  const aspectRatio = outputFormat === 'story' ? '9:16' : '1:1'
+  
+  // map 4:5 to 3:4 for Gemini supported aspect ratios
+  const aspectRatio = submittedAspectRatio === '4:5' ? '3:4' : submittedAspectRatio
   let referenceImageUrls: string[] = []
   if (referenceImageUrlsStr) {
     try { referenceImageUrls = JSON.parse(referenceImageUrlsStr) } catch { /* ignore */ }
@@ -81,7 +83,7 @@ export async function POST(req: NextRequest) {
 
 Brand style: ${brandPrompt}
 Color mood: ${mood}, incorporate subtle ${primaryColor} color accents where natural.
-Output format: ${outputFormat === 'story' ? 'vertical portrait 9:16 aspect ratio, optimized for Instagram/Facebook Story' : 'square 1:1 aspect ratio, optimized for social media post'}.
+Output format: ${aspectRatio === '9:16' ? 'vertical portrait 9:16 aspect ratio, optimized for Story/Reels' : aspectRatio === '16:9' ? 'landscape 16:9 aspect ratio' : 'optimized for social media post'}.
 Compose the image to fill this aspect ratio naturally.
 Keep the same subject but make it look dramatically more professional.
 Output a single enhanced image, no text.`

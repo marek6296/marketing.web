@@ -418,14 +418,21 @@ export default function ImageEditor({ imageUrl, projectId, onClose, onSaved, ini
       fd.append('image', file)
       fd.append('projectId', projectId)
       fd.append('enhanceMode', 'professional')
-      fd.append('outputFormat', format.outputFormat)
+      fd.append('aspectRatio', format.aspectRatio)
 
       const res = await fetch('/api/enhance', { method: 'POST', body: fd })
       const data = await res.json()
       if (data.imageUrl) {
         baseUrlRef.current = data.imageUrl
         const img = new Image(); img.crossOrigin = 'anonymous'
-        img.onload = () => { imgRef.current = img; setLoaded(false); setTimeout(() => setLoaded(true), 50) }
+        img.onload = () => { 
+          imgRef.current = img
+          const r = img.naturalWidth / img.naturalHeight
+          const MAX = 700; let w = MAX, h = MAX
+          if (r > 1) h = Math.round(w / r)
+          else if (r < 1) w = Math.round(h * r)
+          setSz({ w, h }); setLoaded(false); setTimeout(() => setLoaded(true), 50) 
+        }
         img.src = data.imageUrl
       } else setResizeError(data.error || 'Chyba')
     } catch { setResizeError('Sieťová chyba') } finally { setResizeLoading(false) }
@@ -444,7 +451,14 @@ export default function ImageEditor({ imageUrl, projectId, onClose, onSaved, ini
       if (data.imageUrl) {
         baseUrlRef.current = data.imageUrl
         const img = new Image(); img.crossOrigin = 'anonymous'
-        img.onload = () => { imgRef.current = img; setLoaded(false); setTimeout(() => setLoaded(true), 50) }
+        img.onload = () => { 
+          imgRef.current = img
+          const r = img.naturalWidth / img.naturalHeight
+          const MAX = 700; let w = MAX, h = MAX
+          if (r > 1) h = Math.round(w / r)
+          else if (r < 1) w = Math.round(h * r)
+          setSz({ w, h }); setLoaded(false); setTimeout(() => setLoaded(true), 50) 
+        }
         img.src = data.imageUrl; setAiPrompt('')
       } else setAiError(data.error || 'Chyba')
     } catch { setAiError('Sieťová chyba') } finally { setAiLoading(false) }
