@@ -212,15 +212,31 @@ export default function CalendarClient({ projectId, scheduled, published, drafts
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                     <div style={{ marginBottom: 4, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
                       <button onClick={() => setShowDrafts(false)} className="btn-ghost" style={{ fontSize: 12, padding: '4px 8px' }}><ChevronLeft size={14}/> Späť</button>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                         <Clock size={14} color="var(--text-muted)" />
-                        <input 
-                          type="time" 
+                        <select 
                           className="input-field" 
-                          value={draftTime} 
-                          onChange={e => setDraftTime(e.target.value)} 
-                          style={{ fontSize: 13, padding: '4px 8px', width: 90 }}
-                        />
+                          value={draftTime.split(':')[0]} 
+                          onChange={e => setDraftTime(`${e.target.value}:${draftTime.split(':')[1]}`)}
+                          style={{ fontSize: 13, padding: '4px 8px', width: 50, textAlign: 'center', cursor: 'pointer' }}
+                        >
+                          {Array.from({length: 24}).map((_, i) => {
+                            const hh = i.toString().padStart(2, '0');
+                            return <option key={hh} value={hh}>{hh}</option>
+                          })}
+                        </select>
+                        <span style={{ fontWeight: 700, color: 'var(--text-muted)' }}>:</span>
+                        <select 
+                          className="input-field" 
+                          value={draftTime.split(':')[1]} 
+                          onChange={e => setDraftTime(`${draftTime.split(':')[0]}:${e.target.value}`)}
+                          style={{ fontSize: 13, padding: '4px 8px', width: 50, textAlign: 'center', cursor: 'pointer' }}
+                        >
+                          <option value="00">00</option>
+                          <option value="15">15</option>
+                          <option value="30">30</option>
+                          <option value="45">45</option>
+                        </select>
                       </div>
                     </div>
                     {drafts.map(draft => (

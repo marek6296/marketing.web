@@ -178,116 +178,6 @@ type ProjectBrand = {
   image_reference_url: string | null
 }
 
-/* ─── Brand Status Bar ───────────────────────────────────────────── */
-function BrandStatusBar({ brand, projectId }: { brand: ProjectBrand | null; projectId: string }) {
-  const router = useRouter()
-  if (!brand) return null
-  const hasPrompt = !!brand.brand_style_prompt?.trim()
-  const hasImagePrompt = !!brand.image_prompt?.trim()
-  const hasColors = !!brand.brand_colors
-  const hasStyle = !!brand.image_style
-  const hasRef = !!brand.image_reference_url
-  const activeCount = [hasPrompt, hasImagePrompt, hasColors, hasStyle, hasRef].filter(Boolean).length
-
-  const PROJECT_TYPE_LABELS: Record<string, { label: string, icon: any }> = {
-    restaurant: { label: 'Reštaurácia', icon: Utensils },
-    hotel: { label: 'Hotel', icon: Hotel },
-    influencer: { label: 'Influencer', icon: User },
-    shop: { label: 'Obchod', icon: ShoppingBag },
-    company: { label: 'Firma', icon: Building2 },
-    custom: { label: 'Vlastné', icon: Pencil },
-  }
-  const TEMPLATE_LABELS: Record<string, string> = {
-    'modern-minimal': 'Minimalistický', 'bold-vibrant': 'Bold', 'elegant-luxury': 'Elegantný',
-    'playful-casual': 'Hravý', 'rustic-natural': 'Rustikálny',
-  }
-
-  const chipBase: React.CSSProperties = {
-    display: 'flex', alignItems: 'center', gap: 5,
-    padding: '3px 10px', borderRadius: 20,
-    fontSize: 11, fontWeight: 500, whiteSpace: 'nowrap' as const,
-    transition: 'all 150ms',
-  }
-
-  return (
-    <div style={{
-      display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap',
-      padding: '7px 14px', marginBottom: 16,
-      background: 'var(--bg-card)', borderRadius: 'var(--radius)',
-      border: '1px solid var(--border)',
-    }}>
-      {/* Label */}
-      <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-faint)', letterSpacing: '0.08em', textTransform: 'uppercase', marginRight: 4 }}>
-        AI kontext
-      </span>
-
-      {/* Divider dot */}
-      <span style={{ width: 3, height: 3, borderRadius: '50%', background: 'var(--border)', display: 'inline-block', marginRight: 2, flexShrink: 0 }} />
-
-      {/* Project type */}
-      {brand.project_type && PROJECT_TYPE_LABELS[brand.project_type] && (() => {
-        const { label, icon: Icon } = PROJECT_TYPE_LABELS[brand.project_type]
-        return (
-          <span style={{ ...chipBase, background: 'var(--brand-bg)', color: 'var(--brand-dark)', border: '1px solid var(--brand-border)' }}>
-            <Icon size={10} strokeWidth={2.5} />
-            {label}
-          </span>
-        )
-      })()}
-
-      {/* Brand hlas */}
-      {hasPrompt && (
-        <span style={{ ...chipBase, background: 'var(--success-bg)', color: 'var(--success)', border: '1px solid var(--success-border)' }}>
-          <CheckCircle2 size={10} strokeWidth={2.5} />
-          Brand Prompt
-        </span>
-      )}
-
-      {/* Brand farby */}
-      {hasColors && brand.brand_colors && (
-        <span style={{ ...chipBase, background: 'var(--bg-hover)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}>
-          <span style={{ display: 'flex', alignItems: 'center' }}>
-            <span style={{ width: 9, height: 9, borderRadius: '50%', background: brand.brand_colors.primary, border: '1.5px solid rgba(0,0,0,0.12)', display: 'inline-block' }} />
-            <span style={{ width: 9, height: 9, borderRadius: '50%', background: brand.brand_colors.secondary, border: '1.5px solid rgba(0,0,0,0.12)', display: 'inline-block', marginLeft: -3 }} />
-          </span>
-          Farby
-        </span>
-      )}
-
-      {/* Vizuálny štýl */}
-      {hasStyle && brand.image_style && brand.project_type !== 'custom' && (
-        <span style={{ ...chipBase, background: 'var(--bg-hover)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}>
-          <Palette size={10} strokeWidth={2} />
-          {TEMPLATE_LABELS[brand.image_style.template] || brand.image_style.template}
-        </span>
-      )}
-
-      {/* Vizuálny prompt */}
-      {hasImagePrompt && (
-        <span style={{ ...chipBase, background: 'var(--bg-hover)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}>
-          <ScanText size={10} strokeWidth={2} />
-          Vizuálny prompt
-        </span>
-      )}
-
-      {/* Ref. foto */}
-      {hasRef && (
-        <span style={{ ...chipBase, background: 'var(--bg-hover)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}>
-          <LucideImage size={10} strokeWidth={2} />
-          Ref. foto
-        </span>
-      )}
-
-      {/* Empty state */}
-      {activeCount === 0 && (
-        <span style={{ fontSize: 11, color: 'var(--text-faint)', fontStyle: 'italic' }}>
-          Žiadny brand kontext — nastavte ho v Nastaveniach projektu
-        </span>
-      )}
-    </div>
-  )
-}
-
 
 export default function ProjectGeneratorPage() {
   const { id: projectId } = useParams<{ id: string }>()
@@ -374,7 +264,6 @@ export default function ProjectGeneratorPage() {
         )}
       </div>
 
-      <BrandStatusBar brand={brand} projectId={projectId} />
 
       {tab === 'post' && <PostGenerator projectId={projectId} profile={profile} />}
       {tab === 'story' && (isFree ? <PremiumBanner feature="AI Story Generátor" /> : <StoryGenerator projectId={projectId} />)}
@@ -428,7 +317,7 @@ function StoryGenerator({ projectId }: { projectId: string }) {
     shadow: boolean; strokeColor: string; strokeWidth: number; maxWidth: number
   }[] | undefined>(undefined)
 
-  const suggestions = ['Ranná akcia', 'Flash sale 24h', 'Za kulisami', 'Nový produkt', 'Špeciálna ponuka dnes', 'Motivácia dňa']
+
 
   async function handleStoryInputFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]; if (!file) return
@@ -542,11 +431,8 @@ function StoryGenerator({ projectId }: { projectId: string }) {
     <div className="grid-2" style={{ gap: 20, alignItems: 'start' }}>
       {/* LEFT: Controls */}
       <div className="card" style={{ padding: 24 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-          <Smartphone size={16} color="var(--brand)" />
-          <h2 style={{ fontSize: 15, fontWeight: 600 }}>Generovať Story</h2>
-        </div>
-        <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 18 }}>Story sa generujú vo formáte 9:16 (na výšku) optimalizovanom pre Instagram a Facebook Stories.</p>
+        <h2 style={{ fontSize: 15, fontWeight: 600, marginBottom: 16 }}>Generovať Story</h2>
+        
 
         {/* Input image */}
         <div style={{ marginBottom: 18 }}>
@@ -589,14 +475,6 @@ function StoryGenerator({ projectId }: { projectId: string }) {
           <textarea className="input-field" rows={3} placeholder="Popíšte o čom má story byť..." value={topic} onChange={e => setTopic(e.target.value)} style={{ resize: 'vertical' }} />
         </div>
 
-        <div style={{ marginBottom: 18 }}>
-          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8, fontWeight: 500 }}>Rýchle návrhy</div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-            {suggestions.map(s => (
-              <button key={s} onClick={() => setTopic(s)} style={{ padding: '5px 12px', fontSize: 12, borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontWeight: 500, fontFamily: 'Inter', border: `1px solid ${topic === s ? 'var(--brand-border)' : 'var(--border)'}`, color: topic === s ? 'var(--brand-dark)' : 'var(--text-secondary)', background: topic === s ? 'var(--brand-bg)' : 'var(--bg-card)', transition: 'all 150ms' }}>{s}</button>
-            ))}
-          </div>
-        </div>
 
         <div style={{ marginBottom: 18 }}>
           <RefImagePicker projectId={projectId} value={refImages} onChange={setRefImages} />
@@ -627,7 +505,6 @@ function StoryGenerator({ projectId }: { projectId: string }) {
       {/* RIGHT: Story preview (9:16) */}
       <div className="card" style={{ padding: 24 }}>
         <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Smartphone size={15} color="var(--brand)" />
           Náhľad Story {post && <span className="badge badge-green">Hotovo</span>}
         </div>
         {loading ? (
@@ -827,7 +704,7 @@ function PostGenerator({ projectId, profile }: { projectId: string; profile: Pro
     setShowLibrary(false)
   }
 
-  const suggestions = ['Nová akcia', 'Denná ponuka', 'Špeciálna udalosť', 'Sezónny produkt', 'Happy hour', 'Novinka']
+
 
   return (
     <>
@@ -897,14 +774,7 @@ function PostGenerator({ projectId, profile }: { projectId: string; profile: Pro
             <label className="input-label">{isFree ? 'Text príspevku' : 'Téma'}</label>
             <textarea className="input-field" rows={3} placeholder={isFree ? "Napíšte text príspevku sem..." : "Popíšte, o čom má byť príspevok..."} value={topic} onChange={(e) => setTopic(e.target.value)} style={{ resize: 'vertical' }} />
           </div>
-          {!isFree && (
-            <div style={{ marginBottom: 18 }}>
-              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8, fontWeight: 500 }}>Rýchle návrhy</div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>{suggestions.map(s => (
-                <button key={s} onClick={() => setTopic(s)} style={{ padding: '5px 12px', fontSize: 12, borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontWeight: 500, fontFamily: 'Inter', border: `1px solid ${topic === s ? 'var(--brand-border)' : 'var(--border)'}`, color: topic === s ? 'var(--brand-dark)' : 'var(--text-secondary)', background: topic === s ? 'var(--brand-bg)' : 'var(--bg-card)', transition: 'all 150ms' }}>{s}</button>
-              ))}</div>
-            </div>
-          )}
+
           <div style={{ marginBottom: 18 }}>
             <RefImagePicker projectId={projectId} value={refImages} onChange={setRefImages} />
           </div>
@@ -994,9 +864,7 @@ function ImageGenerator({ projectId }: { projectId: string }) {
       {showInputLibrary2 && <LibraryPicker projectId={projectId} onSelect={handleImgLibrarySelect} onClose={() => setShowInputLibrary2(false)} />}
     <div className="grid-2" style={{ gap: 20, alignItems: 'start' }}>
       <div className="card" style={{ padding: 24 }}>
-        <h2 style={{ fontSize: 15, fontWeight: 600, marginBottom: 4 }}>Generovať obrázok</h2>
-        <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 18 }}>AI použije vizuálny štýl, farby a nastavenia z vášho projektu.</p>
-
+        <h2 style={{ fontSize: 15, fontWeight: 600, marginBottom: 16 }}>Generovať obrázok</h2>
         {/* Input image (Fotka k obrázku) – hore ako v Post/Story */}
         <div style={{ marginBottom: 18 }}>
           <label className="input-label" style={{ marginBottom: 8, display: 'block' }}>Fotka k obrázku <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(voliteľňá)</span></label>
@@ -1034,7 +902,11 @@ function ImageGenerator({ projectId }: { projectId: string }) {
 
         <div style={{ marginBottom: 18 }}>
           <label className="input-label">Čo zobrazuje</label>
-          <textarea className="input-field" rows={4} value={topic} onChange={e => setTopic(e.target.value)} placeholder="Napr. čerstvý burger s hranolkami na drevenej doske..." style={{ resize: 'vertical' }} />
+          <textarea className="input-field" rows={3} value={topic} onChange={e => setTopic(e.target.value)} placeholder="Napr. čerstvý burger s hranolkami na drevenej doske..." style={{ resize: 'vertical' }} />
+        </div>
+
+        <div style={{ marginBottom: 18 }}>
+          <RefImagePicker projectId={projectId} value={refImages} onChange={setRefImages} />
         </div>
 
         {/* Format selector */}
@@ -1059,10 +931,6 @@ function ImageGenerator({ projectId }: { projectId: string }) {
               </button>
             ))}
           </div>
-        </div>
-
-        <div style={{ marginBottom: 18 }}>
-          <RefImagePicker projectId={projectId} value={refImages} onChange={setRefImages} />
         </div>
 
 

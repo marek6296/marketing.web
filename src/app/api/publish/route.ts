@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import { publishPostToMeta } from '@/lib/meta/publishHelper'
 
 export async function POST(req: NextRequest) {
   const cookieStore = await cookies()
@@ -39,142 +40,15 @@ export async function POST(req: NextRequest) {
 
   const pageId = project.facebook_page_id
   const token = project.meta_access_token
-  const isStory = post.post_type === 'story'
-  const platform = post.platform as string
+  const result = await publishPostToMeta(
+    { id: post.id, image_url: post.image_url, caption: post.caption, post_type: post.post_type, platform: post.platform },
+    project,
+    supabase
+  )
 
-  const results: { facebook?: string; instagram?: string; errors: string[] } = { errors: [] }
-
-  // ─── FACEBOOK ────────────────────────────────────────────────────────────────
-  const doFacebook = platform === 'facebook' || platform === 'both' ||
-    platform === 'facebook_story' || platform === 'both_stories'
-
-  if (doFacebook) {
-    try {
-      if (isStory) {
-        // Facebook Photo Story
-        if (!post.image_url) {
-          results.errors.push('Facebook Story: Príspevok musí mať obrázok')
-        } else {
-          const res = await fetch(`https://graph.facebook.com/v21.0/${pageId}/photo_stories`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url: post.image_url, access_token: token }),
-          })
-          const data = await res.json()
-          if (data.error) results.errors.push(`Facebook Story: ${data.error.message}`)
-          else results.facebook = data.post_id || data.id
-        }
-      } else {
-        // Regular Facebook post
-        if (post.image_url) {
-          const res = await fetch(`https://graph.facebook.com/v21.0/${pageId}/photos`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url: post.image_url, caption: post.caption || '', access_token: token }),
-          })
-          const data = await res.json()
-          if (data.error) results.errors.push(`Facebook: ${data.error.message}`)
-          else results.facebook = data.post_id || data.id
-        } else {
-          const res = await fetch(`https://graph.facebook.com/v21.0/${pageId}/feed`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message: post.caption || '', access_token: token }),
-          })
-          const data = await res.json()
-          if (data.error) results.errors.push(`Facebook: ${data.error.message}`)
-          else results.facebook = data.id
-        }
-      }
-    } catch (err) {
-      results.errors.push(`Facebook: ${err instanceof Error ? err.message : 'Unknown error'}`)
-    }
+  if (result.errors.length > 0 && !result.success) {
+    return NextResponse.json({ error: result.errors.join(' | ') }, { status: 500 })
   }
 
-  // ─── INSTAGRAM ───────────────────────────────────────────────────────────────
-  const doInstagram = (platform === 'instagram' || platform === 'both' ||
-    platform === 'instagram_story' || platform === 'both_stories') &&
-    !!project.instagram_account_id
-
-  if (doInstagram) {
-    try {
-      if (!post.image_url) {
-        results.errors.push('Instagram: Príspevok musí mať obrázok')
-      } else {
-        const igUserId = project.instagram_account_id
-
-        // Build container params — stories use media_type=STORIES
-        const containerParams: Record<string, string> = {
-          image_url: post.image_url,
-          access_token: token,
-        }
-        if (isStory) {
-          containerParams.media_type = 'STORIES'
-        } else {
-          containerParams.caption = post.caption || ''
-        }
-
-        // Step 1: Create media container
-        const containerRes = await fetch(`https://graph.facebook.com/v21.0/${igUserId}/media`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(containerParams),
-        })
-        const containerData = await containerRes.json()
-        console.log(`[IG${isStory ? '_STORY' : ''}] container response:`, JSON.stringify(containerData))
-
-        if (containerData.error) {
-          results.errors.push(`Instagram${isStory ? ' Story' : ''}: ${containerData.error.message}`)
-        } else {
-          const containerId = containerData.id
-
-          // Step 2: Poll until FINISHED
-          let statusCode = 'IN_PROGRESS'
-          let attempts = 0
-          while (statusCode === 'IN_PROGRESS' && attempts < 30) {
-            await new Promise(r => setTimeout(r, 1000))
-            const statusRes = await fetch(
-              `https://graph.facebook.com/v21.0/${containerId}?fields=status_code&access_token=${token}`
-            )
-            const statusData = await statusRes.json()
-            statusCode = statusData.status_code || 'ERROR'
-            attempts++
-            console.log(`[IG${isStory ? '_STORY' : ''}] status ${attempts}: ${statusCode}`)
-          }
-
-          if (statusCode === 'FINISHED') {
-            // Step 3: Publish
-            const publishRes = await fetch(`https://graph.facebook.com/v21.0/${igUserId}/media_publish`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ creation_id: containerId, access_token: token }),
-            })
-            const publishData = await publishRes.json()
-            console.log(`[IG${isStory ? '_STORY' : ''}] publish response:`, JSON.stringify(publishData))
-            if (publishData.error) results.errors.push(`Instagram${isStory ? ' Story' : ''}: ${publishData.error.message}`)
-            else results.instagram = publishData.id
-          } else {
-            results.errors.push(`Instagram${isStory ? ' Story' : ''}: Spracovanie zlyhalo (status: ${statusCode})`)
-          }
-        }
-      }
-    } catch (err) {
-      results.errors.push(`Instagram: ${err instanceof Error ? err.message : 'Unknown error'}`)
-    }
-  }
-
-  // ─── UPDATE DB ───────────────────────────────────────────────────────────────
-  const published = results.facebook || results.instagram
-  await supabase.from('posts').update({
-    status: published ? 'published' : (results.errors.length > 0 ? 'failed' : 'published'),
-    published_at: published ? new Date().toISOString() : null,
-    fb_post_id: results.facebook || null,
-    ig_post_id: results.instagram || null,
-  }).eq('id', postId)
-
-  if (results.errors.length > 0 && !published) {
-    return NextResponse.json({ error: results.errors.join(' | ') }, { status: 500 })
-  }
-
-  return NextResponse.json({ success: true, facebook: results.facebook, instagram: results.instagram, errors: results.errors })
+  return NextResponse.json({ success: true, facebook: result.facebook, instagram: result.instagram, errors: result.errors })
 }

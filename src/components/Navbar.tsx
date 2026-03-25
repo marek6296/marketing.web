@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { logout } from '@/app/actions/auth'
+import LogoLink from './LogoLink'
 
 export default async function Navbar() {
   const supabase = await createClient()
@@ -20,29 +21,16 @@ export default async function Navbar() {
         position: 'relative'
       }}>
         {/* Logo */}
-        <Link href="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{
-            fontFamily: "'Montserrat', sans-serif", fontWeight: 900, fontSize: 22,
-            color: 'var(--text-primary)', letterSpacing: '-0.04em',
-          }}>
-            PROJECTBer
-          </span>
-        </Link>
+        <LogoLink />
 
         {/* Nav links */}
         <div className="nav-center-menu" style={{ 
           position: 'absolute', left: '50%', transform: 'translateX(-50%)',
-          display: 'flex',
+          display: 'flex', alignItems: 'center', gap: 12,
         }}>
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 4,
-            background: 'var(--bg-hover)', padding: '4px', borderRadius: '100px',
-            border: '1px solid var(--border)', boxShadow: 'inset 0 1px 4px rgba(0,0,0,0.02)'
-          }}>
-            <a href="#features" className="nav-pill">Funkcie</a>
-            <a href="#how-it-works" className="nav-pill">Ako to funguje</a>
-            <a href="#pricing" className="nav-pill">Cenník</a>
-          </div>
+          <a href="#features" className="nav-pill">Funkcie</a>
+          <a href="#how-it-works" className="nav-pill">Ako to funguje</a>
+          <a href="#pricing" className="nav-pill">Cenník</a>
         </div>
 
         {/* Auth buttons */}
