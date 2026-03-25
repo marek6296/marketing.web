@@ -218,7 +218,7 @@ export default function CalendarClient({ projectId, scheduled, published, drafts
                           className="input-field" 
                           value={draftTime.split(':')[0]} 
                           onChange={e => setDraftTime(`${e.target.value}:${draftTime.split(':')[1]}`)}
-                          style={{ fontSize: 13, padding: '4px 8px', width: 50, textAlign: 'center', cursor: 'pointer' }}
+                          style={{ fontSize: 13, padding: '4px 8px', width: 64, textAlign: 'center', cursor: 'pointer' }}
                         >
                           {Array.from({length: 24}).map((_, i) => {
                             const hh = i.toString().padStart(2, '0');
@@ -230,7 +230,7 @@ export default function CalendarClient({ projectId, scheduled, published, drafts
                           className="input-field" 
                           value={draftTime.split(':')[1]} 
                           onChange={e => setDraftTime(`${draftTime.split(':')[0]}:${e.target.value}`)}
-                          style={{ fontSize: 13, padding: '4px 8px', width: 50, textAlign: 'center', cursor: 'pointer' }}
+                          style={{ fontSize: 13, padding: '4px 8px', width: 64, textAlign: 'center', cursor: 'pointer' }}
                         >
                           <option value="00">00</option>
                           <option value="15">15</option>

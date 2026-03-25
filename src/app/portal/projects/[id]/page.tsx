@@ -131,15 +131,22 @@ export default async function ProjectDashboardPage({ params }: { params: Promise
               <div className="empty-state"><FileText /><p>Žiadne príspevky</p></div>
             ) : (
               recentPosts.map((post) => (
-                <Link key={post.id} href={`/portal/projects/${id}/posts`} className="table-row" style={{ padding: '10px 12px', textDecoration: 'none' }}>
+                <Link key={post.id} href={`/portal/projects/${id}/posts?edit=${post.id}`} className="table-row" style={{ padding: '10px 12px', textDecoration: 'none', alignItems: 'center' }}>
                   {post.image_url ? (
                     <img src={post.image_url} alt="" style={{ width: 40, height: 40, borderRadius: 'var(--radius-sm)', objectFit: 'cover', flexShrink: 0 }} />
                   ) : (
                     <div style={{ width: 40, height: 40, borderRadius: 'var(--radius-sm)', background: 'var(--bg-hover)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><FileText size={14} color="var(--text-faint)" /></div>
                   )}
                   <div style={{ flex: 1, overflow: 'hidden' }}>
-                    <p style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-primary)' }}>{post.caption?.substring(0, 50) || 'Bez textu'}</p>
-                    <p style={{ fontSize: 11, color: 'var(--text-faint)' }}>{new Date(post.created_at).toLocaleDateString('sk-SK')}</p>
+                    <p style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-primary)', marginBottom: 2 }}>{post.caption?.substring(0, 50) || 'Bez textu'}</p>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      {post.post_type === 'story' && (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '2px 6px', borderRadius: 20, fontSize: 10, fontWeight: 700, color: '#7c3aed', background: '#ede9fe', border: '1px solid #c4b5fd' }}>
+                          📱 Story
+                        </span>
+                      )}
+                      <p style={{ fontSize: 11, margin: 0, color: 'var(--text-faint)' }}>{new Date(post.created_at).toLocaleDateString('sk-SK')}</p>
+                    </div>
                   </div>
                   <span className={`badge ${post.status === 'published' ? 'badge-green' : post.status === 'scheduled' ? 'badge-yellow' : 'badge-brand'}`}>
                     {post.status === 'published' ? 'Live' : post.status === 'scheduled' ? 'Čaká' : 'Draft'}

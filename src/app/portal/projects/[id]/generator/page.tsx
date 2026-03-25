@@ -603,7 +603,8 @@ function PostGenerator({ projectId, profile }: { projectId: string; profile: Pro
   const [post, setPost] = useState<Post | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [publishing, setPublishing] = useState(false)
-  const [scheduledAt, setScheduledAt] = useState('')
+  const [scheduledDate, setScheduledDate] = useState('')
+  const [scheduledTime, setScheduledTime] = useState('12:00')
   const [scheduling, setScheduling] = useState(false)
   const [publishResult, setPublishResult] = useState<{ facebook?: string; instagram?: string } | null>(null)
 
@@ -611,7 +612,7 @@ function PostGenerator({ projectId, profile }: { projectId: string; profile: Pro
     const params = new URLSearchParams(window.location.search)
     const d = params.get('date')
     if (d) {
-      setScheduledAt(d)
+      setScheduledDate(d.split('T')[0])
     }
   }, [])
   const [showLibrary, setShowLibrary] = useState(false)
@@ -689,10 +690,15 @@ function PostGenerator({ projectId, profile }: { projectId: string; profile: Pro
   }
 
   async function handleSchedule() {
-    if (!post || !scheduledAt) return
+    if (!post || !scheduledDate) return
     setScheduling(true)
     try {
-      const res = await fetch('/api/schedule', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ postId: post.id, scheduledAt }) })
+      const [hh, mm] = scheduledTime.split(':')
+      const dt = new Date(scheduledDate)
+      dt.setHours(parseInt(hh, 10) || 12, parseInt(mm, 10) || 0, 0, 0)
+      const finalIso = dt.toISOString()
+      
+      const res = await fetch('/api/schedule', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ postId: post.id, scheduledAt: finalIso }) })
       if (!res.ok) { const d = await res.json(); throw new Error(d.error) }
       setPost({ ...post, status: 'scheduled' })
     } catch (err: unknown) { setError(err instanceof Error ? err.message : 'Chyba') }
@@ -794,7 +800,8 @@ function PostGenerator({ projectId, profile }: { projectId: string; profile: Pro
           post={post} loading={loading}
           onPublish={handlePublish} onSchedule={handleSchedule} onRegenerate={handleGenerate}
           publishing={publishing} scheduling={scheduling}
-          scheduledAt={scheduledAt} setScheduledAt={setScheduledAt}
+          scheduledDate={scheduledDate} setScheduledDate={setScheduledDate}
+          scheduledTime={scheduledTime} setScheduledTime={setScheduledTime}
           publishResult={publishResult}
           projectId={projectId}
           onOpenLibrary={() => setShowLibrary(true)}
@@ -1126,9 +1133,10 @@ function PhotoEnhancer({ projectId }: { projectId: string }) {
 }
 
 /* ─── Preview component ──────────────────────────────────────────── */
-function Preview({ post, loading, onPublish, onSchedule, onRegenerate, publishing, scheduling, scheduledAt, setScheduledAt, publishResult, projectId, onOpenLibrary, onImageChange }: {
+function Preview({ post, loading, onPublish, onSchedule, onRegenerate, publishing, scheduling, scheduledDate, setScheduledDate, scheduledTime, setScheduledTime, publishResult, projectId, onOpenLibrary, onImageChange }: {
   post: Post | null; loading: boolean; onPublish: () => void; onSchedule: () => void; onRegenerate: () => void
-  publishing: boolean; scheduling: boolean; scheduledAt: string; setScheduledAt: (v: string) => void
+  publishing: boolean; scheduling: boolean; scheduledDate: string; setScheduledDate: (v: string) => void
+  scheduledTime: string; setScheduledTime: (v: string) => void
   publishResult: { facebook?: string; instagram?: string } | null
   projectId: string; onOpenLibrary: () => void
   onImageChange: (url: string) => void
@@ -1287,9 +1295,36 @@ function Preview({ post, loading, onPublish, onSchedule, onRegenerate, publishin
                 {publishing ? <><Loader2 size={14} style={{ animation: 'spin-slow 1s linear infinite' }} /> Publikujem...</> : <><Send size={14} /> Publikovať teraz</>}
               </button>
               <div style={{ display: 'flex', gap: 6 }}>
-                <input type="datetime-local" className="input-field" value={scheduledAt} onChange={e => setScheduledAt(e.target.value)} style={{ flex: 1, fontSize: 12 }} />
-                <button className="btn-secondary" onClick={onSchedule} disabled={scheduling || !scheduledAt} style={{ opacity: (scheduling || !scheduledAt) ? 0.4 : 1 }}><CalendarPlus size={14} /> Naplánovať</button>
+                <input type="date" className="input-field" value={scheduledDate} onChange={e => setScheduledDate(e.target.value)} style={{ flex: 1, fontSize: 13 }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <select 
+                    className="input-field" 
+                    value={scheduledTime.split(':')[0]} 
+                    onChange={e => setScheduledTime(`${e.target.value}:${scheduledTime.split(':')[1]}`)}
+                    style={{ fontSize: 13, padding: '4px 8px', width: 64, textAlign: 'center', cursor: 'pointer' }}
+                  >
+                    {Array.from({length: 24}).map((_, i) => {
+                      const hh = i.toString().padStart(2, '0');
+                      return <option key={hh} value={hh}>{hh}</option>
+                    })}
+                  </select>
+                  <span style={{ fontWeight: 700, color: 'var(--text-muted)' }}>:</span>
+                  <select 
+                    className="input-field" 
+                    value={scheduledTime.split(':')[1]} 
+                    onChange={e => setScheduledTime(`${scheduledTime.split(':')[0]}:${e.target.value}`)}
+                    style={{ fontSize: 13, padding: '4px 8px', width: 64, textAlign: 'center', cursor: 'pointer' }}
+                  >
+                    <option value="00">00</option>
+                    <option value="15">15</option>
+                    <option value="30">30</option>
+                    <option value="45">45</option>
+                  </select>
+                </div>
               </div>
+              <button className="btn-secondary" onClick={onSchedule} disabled={scheduling || !scheduledDate} style={{ width: '100%', opacity: (scheduling || !scheduledDate) ? 0.4 : 1, padding: '10px' }}>
+                <CalendarPlus size={14} /> Naplánovať
+              </button>
               <button className="btn-ghost" onClick={onRegenerate} style={{ fontSize: 12 }}><RefreshCw size={13} /> Znova</button>
             </div>
           )}

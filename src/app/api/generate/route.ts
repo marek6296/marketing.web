@@ -172,11 +172,12 @@ export async function POST(req: NextRequest) {
   let projectType = 'restaurant'
   let referenceImageData: string | null = null
   let referenceImageMime = 'image/jpeg'
+  let disableEmojis = false
 
   if (projectId) {
     const { data: project } = await supabase
       .from('projects')
-      .select('name, brand_style_prompt, brand_colors, description, image_style, project_type, image_prompt, image_reference_url')
+      .select('name, brand_style_prompt, brand_colors, description, image_style, project_type, image_prompt, image_reference_url, disable_emojis')
       .eq('id', projectId)
       .single()
 
@@ -187,6 +188,7 @@ export async function POST(req: NextRequest) {
       brandColors = project.brand_colors as { primary?: string; secondary?: string } | null
       imageStyle = project.image_style as Record<string, string> | null
       projectType = project.project_type || 'restaurant'
+      disableEmojis = project.disable_emojis || false
       if (project.image_prompt) brandStylePrompt = brandStylePrompt
         ? `${brandStylePrompt}\n\nStály vizuálny kontext: ${project.image_prompt}`
         : project.image_prompt
@@ -219,9 +221,14 @@ export async function POST(req: NextRequest) {
     try {
       const ai = new GoogleGenAI({ apiKey })
 
+
       // 1. Generate caption (skip for image-only mode)
       if (mode !== 'image-only') {
         const typeCtx = PROJECT_TYPE_CONTEXT[projectType]
+        const emojiRule = disableEmojis
+          ? 'BEZ EMOJI (Prísny zákaz použiť akékoľvek smajlíky, emotikony alebo emoji symboly v celom texte!)'
+          : 's emojis'
+
         const textPrompt = `Si expert na marketing pre ${typeCtx?.label || 'podnik'}. Napíš príspevok na sociálne siete.
 
 INFO O PROJEKTE:
@@ -237,10 +244,10 @@ PRÍSPEVOK:
 ${imageData ? '- Priložená fotka: áno – napíš príspevok ktorý presne opíše čo je na fotke a prepáj to s témou' : ''}
 
 Napíš:
-1. Hlavný text príspevku v slovenčine (max 150 slóv, pútavý, autentický pre tento typ podniku, s emojis)
+1. Hlavný text príspevku v slovenčine (max 150 slóv, pútavý, autentický pre tento typ podniku, ${emojiRule})
 2. Relevantné hashtags (5-8) – musia byť späté konkrétne s témou a typom podniku, nie genérické
 
-Dôležité: Použij správny tón pre tento typ podniku. Formát: Len text príspevku s hashtagmi na konci. Žiadne vysvetlenia.Žiadne uvod. Iba text.`
+Dôležité: Použij správny tón pre tento typ podniku. Formát: Len text príspevku s hashtagmi na konci. Žiadne vysvetlenia. Žiadne uvod. Iba text.`
 
         // Build contents – with image if provided
         const contents = imageData
