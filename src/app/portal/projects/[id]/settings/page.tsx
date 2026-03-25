@@ -603,18 +603,14 @@ export default function ProjectSettingsPage() {
             <button
               onClick={async () => {
                 if (!confirm('Odpojíš Facebook a Instagram. Pokračovať?')) return
-                const fd = new FormData()
-                fd.append('id', id as string)
-                fd.append('meta_access_token', '')
-                fd.append('facebook_page_id', '')
-                fd.append('instagram_account_id', '')
-                // reuse existing updateProject action via fetch
-                await fetch('/api/project', {
+                const res = await fetch('/api/project', {
                   method: 'PATCH',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ id, meta_access_token: null, facebook_page_id: null, instagram_account_id: null }),
                 })
-                setProject(p => p ? { ...p, meta_access_token: null, facebook_page_id: null, instagram_account_id: null } : p)
+                if (res.ok) {
+                  window.location.reload()
+                }
               }}
               style={{
                 display: 'inline-flex', alignItems: 'center', gap: 4,
